@@ -103,7 +103,7 @@ self.X, self.Y, self.likelihood
 class BatchIndependentMultitaskGPModel(gpytorch.models.ExactGP)
 ```
 
-- ExactGP Model definition: ![](./resources/ExactGP.png)
+- ExactGP Model definition: ![](../resources/ExactGP.png)
 
 ## Optimize policy
 

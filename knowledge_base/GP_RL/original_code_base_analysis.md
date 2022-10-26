@@ -1,7 +1,9 @@
 # Analysis of original codebase
+
 ## GP Model
 
 - Sample dataset for training GP:
+
   - Training data: ![Training Data](../resources/training_data.png)
   - Testing data:![Testing Data](../resources/training_data.png)
   - Inputs X can be (pos, vel, u) or (pos, u)
@@ -9,12 +11,14 @@
   - X, Y normalized by mean and std_states $\frac{X-\mu}{std}$
 
 - Define action space and observation space
+
 ```python
 n_actions = 1
 n_obs = 2
 action_space = spaces.Box(low=-1, high=1, shape=(n_actions,), dtype="float32")
 observation_space = spaces.Box(low=-50.0, high=50.0, shape=(n_obs,), dtype="float32")
 ```
+
 - spaces.Box for dealing with real numbers.
 
 ### Training GP Model

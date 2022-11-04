@@ -1,0 +1,2206 @@
+<?xml version="1.0"?>
+
+<!--
+  This file contains the urdf model for the avant. 
+  There are also added some gazebo plugins in the bottom of the file, which
+  help to run the urdf file in the gazebo simulation environment and publish it's state from there.
+-->
+
+<robot
+  name="avant_bucket" xmlns:xacro="http://ros.org/wiki/xacro">
+
+  <!-- Materials a.k.a. used colors in the model -->
+  
+  <material name="green">
+     <color rgba="0 .48 0 1"/>
+  </material>
+
+  <material name="black">
+    <color rgba=".15 .15 .15 1"/>
+  </material>
+
+  <material name="white">
+     <color rgba="1 1 1 1"/>
+  </material>
+
+  <material name="gray">
+     <color rgba=".4 .4 .4 1"/>
+  </material>
+
+  <material name="yellow">
+     <color rgba="1 1 0 1"/>
+  </material>
+
+<!-- Define intertial property macros  -->
+
+  <xacro:macro name="boom_inertia" params="m w h d">
+    <inertial>
+      <origin xyz="0 0.25 0" rpy="${pi/2} 0 ${pi/2}"/>
+      <mass value="${m}"/>
+      <inertia ixx="${(m/12) * (h*h + d*d)}" ixy="0.0" ixz="0.0" iyy="${(m/12) * (w*w + d*d)}" iyz="0.0" izz="${(m/12) * (w*w + h*h)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="box_inertia" params="m w h d">
+    <inertial>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 ${pi/2}"/>
+      <mass value="${m}"/>
+      <inertia ixx="${(m/12) * (h*h + d*d)}" ixy="0.0" ixz="0.0" iyy="${(m/12) * (w*w + d*d)}" iyz="0.0" izz="${(m/12) * (w*w + h*h)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="cylinder_inertia" params="m r h">
+    <inertial>
+      <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+      <mass value="${m}"/>
+      <inertia ixx="${(m/12) * (3*r*r + h*h)}" ixy = "0" ixz = "0" iyy="${(m/12) * (3*r*r + h*h)}" iyz = "0" izz="${(m/2) * (r*r)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <xacro:macro name="sphere_inertia" params="m r">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia ixx="${(2/5) * m * (r*r)}" ixy="0.0" ixz="0.0" iyy="${(2/5) * m * (r*r)}" iyz="0.0" izz="${(2/5) * m * (r*r)}"/>
+    </inertial>
+  </xacro:macro>
+  
+<!-- The first link. Named avant to locate the part in the same position
+     as the published coordinate system from the actual model. -->  
+  
+  <link
+    name="avant">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <cylinder length="0.01" radius="0.01"/>
+      </geometry>
+      <material name="green"/>
+    </visual>
+
+    <collision>
+      <geometry>
+        <cylinder radius="0.01" length="0.01"/>
+      </geometry>
+
+    <surface>
+      <contact>
+        <ode>
+          <max_vel>0</max_vel>
+          <min_depth>5.0</min_depth>
+        </ode>
+      </contact>
+    </surface>
+    </collision>
+
+  </link>
+
+<!-- Frontbody and middle cylinder. Frontbody is connected to middle cylinder
+     with a fixed joint. ( Middle cylinder's origin is -0.6m (x-direction) 
+	 and 0.0866m (z-direction) from frontbody's origin, which is at the center
+	 of the front axle.) The first link avant has the origin at its center
+     and is then connected to the origin of the frontbody. Thereby the origin
+     of the whole robot is at the center of the front axle	 --> 
+ 
+  <link
+   name="front_body">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Frontbody.STL"/>
+      </geometry>
+      <material name="green"/>
+    </visual>
+
+    <collision>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Frontbody.STL"/>
+      </geometry>
+
+    <surface>	
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+    </surface>
+
+    </collision>
+
+    <xacro:box_inertia m="300" w="0.3" h="0.3" d="0.3"/> 
+  </link>
+
+  <joint name="avant_to_front" type="fixed">
+    <parent link="avant"/>
+    <child link="front_body"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+
+  <link
+    name="middle_cylinder">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <cylinder length="0.29" radius="0.0275"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <geometry>
+          <cylinder length="0.29" radius="0.0275"/>
+      </geometry>
+
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+
+    </collision>
+
+    <xacro:cylinder_inertia m="5" r="0.0275" h="0.29"/> 
+
+  </link>
+
+  <joint name="front_to_center" type="fixed">
+    <parent link="front_body"/>
+    <child link="middle_cylinder"/>
+    <origin xyz="-0.6 0.0 0.0866"/>
+  </joint>
+
+<!-- Back frame and back body. Back frame is connected to middle cylinder
+     with a revolute joint. ( Back frame's origin is -0.6m (x-direction) 
+	 and -0.0866m (z-direction) from cylinder's origin.) Backbody is then
+	 connected with a fixed joint to back frame, origin at the same spot
+	 as back frame's one. -->
+	 
+  <link
+    name="back_frame">
+    <visual>
+     <origin
+       xyz="-0.6 0.0 -0.0866"
+       rpy="0.0 0.0 0.0" />
+     <geometry>
+       <mesh
+         filename="file://$(find avant_description)/meshes/Backframe.STL"/>
+     </geometry>
+     <material name="gray"/>
+    </visual>
+
+    <collision>
+    <origin xyz="-0.6 0.0 -0.0866" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Backframe.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+            <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="200" w="0.7" h="0.7" d="0.7"/> 
+  </link>
+
+  <joint name="center_link" type="revolute">
+    <parent link="middle_cylinder"/>
+    <child link="back_frame"/>
+    <axis xyz="0 0 1"/>
+    <origin xyz="0.0 0.0 0.0"/>
+    <limit
+      lower="-0.85"
+      upper="0.85"
+      effort="1000"
+      velocity="1" />
+  </joint>
+
+  <link
+   name="back_body">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Backbody.STL"/>
+      </geometry>
+      <material name="green"/>
+    </visual>
+
+    <collision>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Backbody.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="300" w="0.7" h="0.8" d="0.9"/> 
+  </link>
+
+  <joint name="back_frame_to_back_body" type="fixed">
+    <parent link="back_frame"/>
+    <child link="back_body"/>
+    <origin xyz="-0.6 0.0 -0.0866"/>
+  </joint>
+
+<!-- Boom, where the front boom is connected, linked to front body 
+     origin with a revolute joint. The distance from the front body 
+     origin to boom origin is in x-direction -0.6m
+                              in y-direction -0.257m and
+        	              in z-direction 0.95m.-->
+	 
+  <link
+    name="boom">
+    <visual>
+     <origin
+       xyz="0.0 0.0 0.0"
+       rpy="0 0 0" />
+     <geometry>
+       <mesh
+         filename="file://$(find avant_description)/meshes/Boom.STL"/>
+     </geometry>
+     <material name="green"/>
+    </visual>
+
+    <collision>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Boom.STL"/>
+      </geometry>
+    </collision>
+
+    <xacro:boom_inertia m="5" w="0.3" h="0.8" d="0.8"/>
+  </link>
+
+  <gazebo reference="boom">
+    <gravity>0</gravity>
+  </gazebo>
+
+  <joint name="boom_angle" type="revolute">
+    <parent link="front_body"/>
+    <child link="boom"/>
+    <axis xyz="0 -1 0"/>
+    <origin xyz="-0.6 -0.257 0.95"/>
+    <limit
+      lower="-0.7"
+      upper="0.7"
+      effort="100"
+      velocity="100" />
+  </joint>
+<!-- Front boom, where the tool fixture is connected, linked to boom 
+     origin with a prismatic joint. The distance from the boom origin
+     to front boom origin (in y-direction) is 0.106m.-->
+
+ <link
+    name="front_boom">
+    <visual>
+     <origin
+       xyz="-1.193 0.0 0.0"
+       rpy="0 0 0" />
+     <geometry>
+       <mesh
+         filename="file://$(find avant_description)/meshes/Front_boom.STL"/>
+     </geometry>
+     <material name="green"/>
+    </visual>
+
+    <collision>
+      <origin xyz="-1.193 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Front_boom.STL"/>
+      </geometry>
+    </collision>
+
+    <xacro:box_inertia m="1" w="0.4" h="0.4" d="0.4"/> 
+    <!-- original <xacro:box_inertia m="1" w="0.2" h="0.2" d="0.2"/> -->
+  </link>
+
+<gazebo reference="front_boom">
+    <gravity>0</gravity>
+  </gazebo>
+
+  <joint name="telescope_length" type="prismatic">
+    <parent link="boom"/>
+    <child link="front_boom"/>
+    <axis xyz="1 0 0"/>
+    <origin xyz="1.116 0.106 0.0"/> 
+    <limit
+      lower="0.1"
+      upper="0.9"
+      effort="100"
+      velocity="100" />
+  </joint>
+
+<!-- Tool fixture, where the tool is connected, linked to front boom 
+     origin with a revolute joint. The distance from the center of
+     front boom to center of tool (in y-direction) is 0.151m.-->
+
+ <link
+    name="tool_fixture">
+    <visual>
+     <origin
+       xyz="0.0 0.0 0.0"
+       rpy="0 0 0" />
+     <geometry>
+       <mesh
+         filename="file://$(find avant_description)/meshes/Tool_fixture.STL"/>
+     </geometry>
+     <material name="green"/>
+
+    </visual>
+        <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Tool_fixture.STL"/>
+      </geometry>
+    </collision>
+
+   <xacro:box_inertia m="2.0" w="0.5" h="0.5" d="0.5"/>
+   <!--  original  <xacro:box_inertia m="2" w="0.5" h="0.5" d="0.5"/>-->
+  </link>
+  
+<gazebo reference="tool_fixture">
+    <gravity>0</gravity>
+    <!-- added friction values for testing-->
+   <!--<mu1>0.1</mu1>  --> 
+ <!-- <mu2>0.1</mu2>   -->
+    <!-- <kd>0.1</kd> -->
+ <!--   <dampingFactor>0.999</dampingFactor> -->
+
+
+  </gazebo>
+
+  <joint name="fork_angle" type="revolute">
+  
+    <parent link="front_boom"/>
+    <child link="tool_fixture"/>
+    <axis xyz="0 -1 0"/>
+    <origin xyz="0.0 0.151 0.0"/>
+    <limit
+      lower="-0.7" 
+      upper="0.7"
+      effort="10"
+      velocity="10" />
+  <!--  <dynamics damping="0.2"/> -->
+  </joint>
+
+<gazebo reference="fork_angle">
+  <implicitSpringDamper>True</implicitSpringDamper>
+ <!-- <springStiffness>0.05</springStiffness> --> 
+</gazebo>
+
+
+<!-- fork_angle limits upper and lower are -1 and 1 originally--> 
+<!-- Tool being used (in this case, bucket), linked to tool fixture 
+     origin with a fixed joint. The distance from fork angle joint
+     to tool origin is 0.07m (in x-direction).-->
+
+ <link
+    name="bucket">
+    <visual>
+     <origin
+       xyz="0.0 0.0 0.0"
+       rpy="0 0 0" />
+     <geometry>
+       <mesh
+         filename="file://$(find avant_description)/meshes/Bucket.STL"/>
+     </geometry>
+     <material name="black"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Bucket.STL"/>
+      </geometry>
+    </collision>
+
+    <xacro:box_inertia m="0.1" w="0.1" h="0.1" d="0.1"/> 
+    <!-- original     <xacro:box_inertia m="1" w="0.4" h="0.4" d="0.4"/>  -->
+  </link>
+
+  <gazebo reference="bucket">
+    <gravity>0</gravity>
+  </gazebo>
+
+  <joint name="tool_joint" type="fixed">
+    <parent link="tool_fixture"/>
+    <child link="bucket"/>
+    <origin xyz="0.07 0.0 0.0"/>
+  </joint>
+
+<!-- cylinder end joints/links for hydraulic jacobian calculation -->
+<link name="A1_link">
+    <visual>
+      <origin rpy="0 0.0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <box size="0.0 0.0 0.0"/>
+      </geometry>
+    </visual>
+  </link>
+  <link name="E1_link">
+    <visual>
+      <origin rpy="0 0.0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <box size="0.0 0.0 0.0"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="A1_joint" type="fixed">
+    <parent link="avant"/>
+    <child link="A1_link"/>
+    <axis xyz="0 -1 0"/>
+    <origin rpy="0.0 0 0.0" xyz="-.45 -.26 0.8"/>
+    <limit effort="1000" lower="-1.75" upper="1.75" velocity="1"/>
+  </joint>
+
+
+  <joint name="E1_joint" type="fixed">
+    <parent link="boom"/>
+    <child link="E1_link"/>
+    <axis xyz="0 -1 0"/>
+    <origin rpy="0.0 0 0.0" xyz="0.93 0.0 -.1"/>
+    <limit effort="1000" lower="-1.75" upper="1.75" velocity="1"/>
+  </joint>
+
+  <link name="A2_link">
+    <visual>
+      <origin rpy="0 0.0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <box size="0.0 0.0 0.0"/>
+      </geometry>
+    </visual>
+  </link>
+
+
+  <link name="E2_link">
+    <visual>
+      <origin rpy="0 0.0 0" xyz="0.0 0.0 0.0"/>
+      <geometry>
+        <box size="0.0 0.0 0.0"/>
+      </geometry>
+    </visual>
+  </link>
+
+  <joint name="A2_joint" type="fixed">
+    <parent link="boom"/>
+    <child link="A2_link"/>
+    <axis xyz="0 -1 0"/>
+    <origin rpy="0.0 0.0 0.0" xyz="0.0 0.0 1.0"/>
+    <limit effort="1000" lower="-1.75" upper="1.75" velocity="1"/>
+  </joint>
+
+
+  <joint name="E2_joint" type="fixed">
+    <parent link="tool_fixture"/>
+    <child link="E2_link"/>
+    <axis xyz="0 -1 0"/>
+    <origin rpy="0.0 0 0.0" xyz="0.1 0.0 -0.3"/>
+    <limit effort="1000" lower="-1.75" upper="1.75" velocity="1"/>
+  </joint>
+
+<!-- Seat, linked to front body origin with a fixed joint -->
+
+  <link
+   name="seat">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Seat.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Seat.STL"/>
+      </geometry>
+
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="10" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="seat_to_front_body" type="fixed">
+    <parent link="front_body"/>
+    <child link="seat"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+<!-- Safety frame, linked to front body origin with a fixed joint -->
+
+  <link
+   name="safety_frame">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Safety_frame.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Safety_frame.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="30" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="frame_to_front_body" type="fixed">
+    <parent link="front_body"/>
+    <child link="safety_frame"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+ 
+<!-- Scanner fixture, linked to front body origin with a fixed joint -->
+
+  <link
+   name="scanner_fixture">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Kattoskanneri_kiinnitys.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Kattoskanneri_kiinnitys.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="scan_fixture" type="fixed">
+    <parent link="front_body"/>
+    <child link="scanner_fixture"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+<!-- Scanner parts, linked to front body origin with a fixed joint -->
+
+  <link
+   name="scanner_gray">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Skanneri_harmaaosa.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Skanneri_harmaaosa.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="scanner" type="fixed">
+    <parent link="front_body"/>
+    <child link="scanner_gray"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+  <link
+   name="scanner_black">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Skanneri_mustaosa.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Skanneri_mustaosa.STL"/>
+      </geometry>
+    <surface>
+      <contact>
+        <ode>
+          <max_vel>0</max_vel>
+           <min_depth>5.0</min_depth>
+        </ode>
+      </contact>
+    </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="scanner_bl" type="fixed">
+    <parent link="front_body"/>
+    <child link="scanner_black"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+<!-- Pole on the roof, linked to front body origin with a fixed joint -->
+
+  <link
+   name="pole_yellow">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Kattotolppa_keltainen.STL"/>
+      </geometry>
+      <material name="yellow"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Kattotolppa_keltainen.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="pole_1" type="fixed">
+    <parent link="front_body"/>
+    <child link="pole_yellow"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+ 
+<!-- Pole on the roof, linked to front body origin with a fixed joint -->
+
+  <link
+   name="pole_black">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Kattotolppa_musta.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Kattotolppa_musta.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="pole_2" type="fixed">
+    <parent link="front_body"/>
+    <child link="pole_black"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+<!-- Pole on the roof, linked to front body origin with a fixed joint -->
+
+  <link
+   name="pole_white">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Kattotolppa_valkoinen.STL"/>
+      </geometry>
+      <material name="white"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Kattotolppa_valkoinen.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="pole_3" type="fixed">
+    <parent link="front_body"/>
+    <child link="pole_white"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+  
+<!-- Box on the roof, linked to front body origin with a fixed joint -->
+
+ <link
+   name="roof">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Katto.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Katto.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="10" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="roof_to_front_body" type="fixed">
+    <parent link="front_body"/>
+    <child link="roof"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+<!-- Ligths and fans on the side, linked to front body origin with a fixed
+     joint -->
+
+ <link
+   name="headlight_right">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Valo_oikea.STL"/>
+      </geometry>
+      <material name="yellow"/>
+    </visual>
+
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Valo_oikea.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="1" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="headlight_1" type="fixed">
+    <parent link="front_body"/>
+    <child link="headlight_right"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+ <link
+   name="headlight_left">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Valo_vasen.STL"/>
+      </geometry>
+      <material name="yellow"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Valo_vasen.STL"/>
+    </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="1" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="headlight_2" type="fixed">
+    <parent link="front_body"/>
+    <child link="headlight_left"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+    
+ <link
+   name="cooling_fan_front">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Puhallin_etu.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Puhallin_etu.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="1" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="fan_front" type="fixed">
+    <parent link="front_body"/>
+    <child link="cooling_fan_front"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+ <link
+   name="cooling_fan_rear">
+    <visual>
+      <origin
+        xyz="0.0 0.0 0.0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Puhallin_taka.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Puhallin_taka.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="1" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="fan_rear" type="fixed">
+    <parent link="front_body"/>
+    <child link="cooling_fan_rear"/>
+    <origin xyz="0.0 0.0 0.0"/>
+  </joint>
+
+ <!-- Rims, wheels and center pins. Continuous joints between
+      body and rim, fixed joints between wheels, rims and pins--> 
+  
+  <link
+    name="back_right_rim">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Vanne.STL"/>
+      </geometry>
+     <material name="gray"/>
+    </visual>
+
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Vanne.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="back_right_rim_joint" type="fixed">
+    <parent link="back_body"/>
+    <child link="back_right_rim"/>
+    <origin xyz="0.0 -0.4827 0.0" rpy="0 0 0"/>
+  </joint>
+  
+ <link
+    name="back_right_wheel">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Rengas.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Rengas.STL"/>
+      </geometry>
+      
+    </collision>
+
+    <xacro:cylinder_inertia m="30" r="0.3207" h="0.3"/> 
+  </link>
+
+  <joint name="back_right_wheel_joint" type="continuous">
+    <parent link="back_right_rim"/>
+    <child link="back_right_wheel"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>
+    <axis xyz="0.0 1.0 0.0"/> 
+  </joint>
+ 
+ <link
+    name="back_right_pin">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Rengas_keskitappi.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Rengas_keskitappi.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="back_right_pin_joint" type="fixed">
+    <parent link="back_right_rim"/>
+    <child link="back_right_pin"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+  </joint>
+  
+  <link
+    name="back_left_rim">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 3.14159" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Vanne.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 3.14159"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Vanne.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="back_left_rim_joint" type="fixed">
+    <parent link="back_body"/>
+    <child link="back_left_rim"/>
+    <origin xyz="0.0 0.4827 0.0" rpy="0 0 0"/>
+  </joint>
+ 
+ <link
+    name="back_left_wheel">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 3.14159" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Rengas.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 3.14159"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Rengas.STL"/>
+      </geometry>
+    </collision>
+
+    <xacro:cylinder_inertia m="30" r="0.3207" h="0.3"/> 
+  </link>
+
+  <joint name="back_left_wheel_joint" type="continuous">
+    <parent link="back_left_rim"/>
+    <child link="back_left_wheel"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    <axis xyz="0.0 1.0 0.0"/> 
+  </joint>
+ 
+ <link
+    name="back_left_pin">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 3.14159" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Rengas_keskitappi.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 3.14159"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Rengas_keskitappi.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="back_left_pin_joint" type="fixed">
+    <parent link="back_left_rim"/>
+    <child link="back_left_pin"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+  </joint>
+  
+  <link
+    name="front_right_rim">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Vanne.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Vanne.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="front_right_rim_joint" type="fixed">
+    <parent link="front_body"/>
+    <child link="front_right_rim"/>
+    <origin xyz="0.0 -0.4827 0.0" rpy="0 0 0"/>
+  </joint>
+ 
+ <link
+    name="front_right_wheel">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Rengas.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Rengas.STL"/>
+      </geometry>
+    </collision>
+
+    <xacro:cylinder_inertia m="30" r="0.3207" h="0.3"/> > 
+  </link>
+
+  <joint name="front_right_wheel_joint" type="continuous">
+    <parent link="front_right_rim"/>
+    <child link="front_right_wheel"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    <axis xyz="0.0 1.0 0.0"/>
+  </joint>
+ 
+ <link
+    name="front_right_pin">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Rengas_keskitappi.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Rengas_keskitappi.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="front_right_pin_joint" type="fixed">
+    <parent link="front_right_rim"/>
+    <child link="front_right_pin"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+  </joint>
+
+  <link
+    name="front_left_rim">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 3.14159" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Vanne.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 3.14159"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Vanne.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="front_left_rim_joint" type="fixed">
+    <parent link="front_body"/>
+    <child link="front_left_rim"/>
+    <origin xyz="0.0 0.4827 0.0" rpy="0 0 0"/>
+  </joint>
+ 
+ <link
+    name="front_left_wheel">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 3.14159" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Rengas.STL"/>
+      </geometry>
+      <material name="black"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 3.14159"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Rengas.STL"/>
+      </geometry>      
+    </collision>
+
+    <xacro:cylinder_inertia m="30" r="0.3207" h="0.3"/> 
+  </link>
+
+  <joint name="front_left_wheel_joint" type="continuous">
+    <parent link="front_left_rim"/>
+    <child link="front_left_wheel"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    <axis xyz="0.0 1.0 0.0"/>
+  </joint>
+ 
+ <link
+    name="front_left_pin">
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 3.14159" />
+      <geometry>
+        <mesh
+         filename="file://$(find avant_description)/meshes/Rengas_keskitappi.STL"/>
+      </geometry>
+      <material name="gray"/>
+    </visual>
+
+    <collision>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 3.14159"/>
+      <geometry>
+          <mesh
+         filename="file://$(find avant_description)/meshes/Rengas_keskitappi.STL"/>
+      </geometry>
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+
+    <xacro:box_inertia m="2" w="0.2" h="0.2" d="0.2"/> 
+  </link>
+
+  <joint name="front_left_pin_joint" type="fixed">
+    <parent link="front_left_rim"/>
+    <child link="front_left_pin"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+  </joint>
+
+
+  <!-- Link and Joint to connect the april tags to -->
+
+  <link
+    name="Apriltag_link">
+    <visual>
+      <origin
+      xyz="0.0 0.0 0"
+      rpy="0 0 0" />
+      <geometry>
+        <box size="0.1 0.01 0.1"/>
+      </geometry>
+    </visual>
+
+    <collision>
+      <origin
+      xyz="0 0.0 0"
+      rpy="0 0 0" />
+      <geometry>
+         <box size="0.05 0.05 0.05"/>
+      </geometry>
+    </collision>
+    <xacro:box_inertia m="0.1" w="0.05" d="0.05" h="0.05"/>
+  </link>
+
+  <joint name="apriltag_joint" type="fixed">
+    <parent link="avant"/>
+    <child link="Apriltag_link"/>
+    <origin xyz="-0.40 -0.46 0.5" rpy="0 0 0"/>
+  </joint>
+
+
+  <!-- Gazebo descriptions for the model -->
+  
+  <gazebo reference="Apriltag_link">
+      <material>apriltagtest</material>
+  </gazebo>
+
+
+  <gazebo reference="front_body">
+    <material>Gazebo/Green</material>
+  </gazebo>
+
+  <gazebo reference="middle_cylinder">
+    <material>Gazebo/Green</material>
+  </gazebo>
+
+  <gazebo reference="back_frame">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+  <gazebo reference="back_body">
+    <material>Gazebo/Green</material>
+  </gazebo>
+  
+   <gazebo reference="boom">
+    <material>Gazebo/Green</material>
+  </gazebo>
+
+   <gazebo reference="front_boom">
+    <material>Gazebo/Green</material>
+  </gazebo>
+
+   <gazebo reference="tool_fixture">
+    <material>Gazebo/Green</material>
+  </gazebo>
+
+   <gazebo reference="bucket">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+   <gazebo reference="seat">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+   <gazebo reference="safety_frame">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+   <gazebo reference="scanner_fixture">
+    <material>Gazebo/Black</material>
+  </gazebo>
+
+
+   <gazebo reference="scanner_gray">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="scanner_black">
+    <material>Gazebo/Black</material>
+  </gazebo>
+
+
+   <gazebo reference="pole_yellow">
+    <material>Gazebo/Yellow</material>
+  </gazebo>
+
+
+   <gazebo reference="pole_black">
+    <material>Gazebo/Black</material>
+  </gazebo>
+
+
+   <gazebo reference="pole_white">
+    <material>Gazebo/White</material>
+  </gazebo>
+
+
+   <gazebo reference="roof">
+    <material>Gazebo/Black</material>
+  </gazebo>
+
+   <gazebo reference="headlight_right">
+    <material>Gazebo/Yellow</material>
+  </gazebo>
+
+
+   <gazebo reference="headlight_left">
+    <material>Gazebo/Yellow</material>
+  </gazebo>
+
+   <gazebo reference="cooling_fan_front">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="cooling_fan_rear">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="back_right_rim">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="back_right_wheel">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="back_right_pin">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+     <gazebo reference="back_left_rim">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="back_left_wheel">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="back_left_pin">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+   <gazebo reference="front_right_rim">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="front_right_wheel">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="front_right_pin">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+  
+     <gazebo reference="front_left_rim">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="front_left_wheel">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+
+   <gazebo reference="front_left_pin">
+    <material>Gazebo/Grey</material>
+  </gazebo>
+
+  <!-- Ros2 plugins for gazebo-->
+
+  <!--Front axle IMU plugin -->
+  <link name="front_axle_IMU_link">
+  <visual>
+    <geometry>
+      <box size="0.05 0.05 0.05"/>
+    </geometry>
+  </visual>
+
+  <collision>
+  <!--
+    <geometry>
+      <box size="0.1 0.1 0.1"/>
+    </geometry>
+
+    <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface> -->
+    <geometry>
+      <box size="0.0 0.0 0.0"/>
+    </geometry>
+  </collision>
+
+  <xacro:box_inertia m="0.1" w="0.1" d="0.1" h="0.1"/>
+</link>
+
+<joint name="front_axle_IMU_joint" type="fixed">
+  <parent link="front_body"/>
+  <child link="front_axle_IMU_link"/>
+  <origin xyz="0 0 0.01"/>
+</joint>
+
+  <gazebo reference="front_axle_IMU_link">
+    <sensor name="front_axle_IMU_sensor" type="imu">
+    <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+        <ros>
+          <namespace></namespace>
+          <remapping>/imu_plugin/out:=front_axle_IMU</remapping>
+        </ros>
+        <initial_orientation_as_reference>false</initial_orientation_as_reference>
+      </plugin>
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <imu>
+        <angular_velocity>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>
+              <bias_mean>0.0000075</bias_mean>
+              <bias_stddev>0.0000008</bias_stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>
+              <bias_mean>0.0000075</bias_mean>
+              <bias_stddev>0.0000008</bias_stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>
+              <bias_mean>0.0000075</bias_mean>
+              <bias_stddev>0.0000008</bias_stddev>
+            </noise>
+          </z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>1.7e-2</stddev>
+              <bias_mean>0.001</bias_mean>
+              <bias_stddev>0.001</bias_stddev>
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>1.7e-2</stddev>
+              <bias_mean>0.001</bias_mean>
+              <bias_stddev>0.001</bias_stddev>
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>1.7e-2</stddev>
+              <bias_mean>0.001</bias_mean>
+              <bias_stddev>0.001</bias_stddev>
+            </noise>
+          </z>
+        </linear_acceleration>
+      </imu>
+  </sensor>
+  </gazebo>
+
+
+  <!--Boom IMU-->
+  <link name="boom_inclinometer_link">
+  <visual>
+    <geometry>
+      <box size="0.05 0.05 0.05"/>
+    </geometry>
+  </visual>
+
+  <collision>
+ <!--   <geometry>
+      <box size="0.1 0.1 0.1"/>
+    </geometry>
+        <surface>
+        <contact>
+          <ode>
+            <max_vel>0</max_vel>
+             <min_depth>5.0</min_depth>
+          </ode>
+        </contact>
+      </surface> -->
+      <!-- removing collision -->
+      <geometry>
+        <box size="0 0 0"/>
+      </geometry>
+  </collision>
+
+  <xacro:box_inertia m="0.1" w="0.1" d="0.1" h="0.1"/>
+</link>
+
+<joint name="boom_inclinometer_joint" type="fixed">
+  <parent link="boom"/>
+  <child link="boom_inclinometer_link"/>
+  <origin xyz="0 0 0.01"/>
+</joint>
+
+  <gazebo reference="boom_inclinometer_link">
+    <sensor name="boom_inclinometer_sensor" type="imu">
+    <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+        <ros>
+          <namespace></namespace>
+          <remapping>/imu_plugin/out:=boom_inclinometer</remapping>
+        </ros>
+        <initial_orientation_as_reference>false</initial_orientation_as_reference>
+      </plugin>
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <imu>
+        <angular_velocity>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev> 
+              <bias_mean>0.0000075</bias_mean> 
+              <bias_stddev>0.0000008</bias_stddev> 
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>  <!---->
+              <bias_mean>0.0000075</bias_mean>  <!---->
+              <bias_stddev>0.0000008</bias_stddev>  <!---->
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>  <!---->
+              <bias_mean>0.0000075</bias_mean>  <!---->
+              <bias_stddev>0.0000008</bias_stddev>  <!---->
+            </noise>
+          </z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>  <!---->
+              <bias_mean>0.0000075</bias_mean>  <!---->
+              <bias_stddev>0.0000008</bias_stddev>  <!---->
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>  <!---->
+              <bias_mean>0.0000075</bias_mean>  <!---->
+              <bias_stddev>0.0000008</bias_stddev>  <!---->
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>  <!---->
+              <bias_mean>0.0000075</bias_mean>  <!---->
+              <bias_stddev>0.0000008</bias_stddev>  <!---->
+            </noise>
+          </z>
+        </linear_acceleration>
+      </imu>
+  </sensor>
+  </gazebo>
+
+    <!--bucket IMU-->
+  <link name="bucket_inclinometer_link">
+  <visual>
+    <geometry>
+      <box size="0.05 0.05 0.05"/>
+    </geometry>
+  </visual>
+
+  <collision>
+  <!--
+    <geometry>
+      <box size="0.1 0.1 0.1"/>
+    </geometry>
+    <surface>
+    <contact>
+      <ode>
+        <max_vel>0</max_vel>
+          <min_depth>5.0</min_depth>
+      </ode>
+    </contact>
+  </surface> -->
+  <!-- removing collision -->
+        <geometry>
+        <box size="0 0 0"/>
+      </geometry>
+  </collision>
+
+  <xacro:box_inertia m="0.1" w="0.1" d="0.1" h="0.1"/>
+</link>
+
+<joint name="bucket_inclinometer_joint" type="fixed">
+  <parent link="bucket"/> <!-- tool_fixture (might change)-->
+  <child link="bucket_inclinometer_link"/>
+  <origin xyz="0 0 0.01"/>
+</joint>
+
+  <gazebo reference="bucket_inclinometer_link">
+    <sensor name="bucket_inclinometer_sensor" type="imu">
+    <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+        <ros>
+          <namespace></namespace>
+          <remapping>/imu_plugin/out:=bucket_inclinometer</remapping>
+        </ros>
+        <initial_orientation_as_reference>false</initial_orientation_as_reference>
+      </plugin>
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <imu>
+        <angular_velocity>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>  <!---->
+              <bias_mean>0.0000075</bias_mean>  <!-- -->
+              <bias_stddev>0.0000008</bias_stddev> <!---->
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>  <!---->
+              <bias_mean>0.0000075</bias_mean>  <!-- -->
+              <bias_stddev>0.0000008</bias_stddev> <!---->
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean>
+              <stddev>2e-4</stddev>  <!---->
+              <bias_mean>0.0000075</bias_mean>  <!-- -->
+              <bias_stddev>0.0000008</bias_stddev> <!---->
+            </noise>
+          </z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x>
+            <noise type="gaussian">
+              <mean>0.0</mean> 
+              <stddev>1.7e-2</stddev> <!---->
+              <bias_mean>0.01</bias_mean> <!--0.01-->
+              <bias_stddev>0.001</bias_stddev> <!--0.001-->
+            </noise>
+          </x>
+          <y>
+            <noise type="gaussian">
+              <mean>0.0</mean> 
+              <stddev>1.7e-2</stddev> <!---->
+              <bias_mean>0.01</bias_mean> <!--0.01-->
+              <bias_stddev>0.001</bias_stddev> <!--0.001-->
+            </noise>
+          </y>
+          <z>
+            <noise type="gaussian">
+              <mean>0.0</mean> 
+              <stddev>1.7e-2</stddev> <!---->
+              <bias_mean>0.01</bias_mean> <!--0.01-->
+              <bias_stddev>0.001</bias_stddev> <!--0.001-->
+            </noise>
+          </z>
+        </linear_acceleration>
+      </imu>
+  </sensor>
+  </gazebo>
+
+  <!-- Lidar plugin for the avant -->
+  <link name="lidar_link">
+  <inertial>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <mass value="0.125"/>
+    <inertia ixx="0.001"  ixy="0"  ixz="0" iyy="0.001" iyz="0" izz="0.001" />
+  </inertial>
+
+  <collision>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+       <cylinder radius="0.0508" length="0.055"/>
+    </geometry>
+  </collision>
+
+  <visual>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <geometry>
+       <cylinder radius="0.0508" length="0.055"/>
+    </geometry>
+  </visual>
+</link>
+
+<joint name="lidar_joint" type="fixed">
+  <parent link="avant"/>
+  <child link="lidar_link"/>
+  <origin xyz="-0.6 0 -0.1" rpy="0 0 0"/>
+</joint>
+
+
+<gazebo reference="lidar_link">
+  <sensor name="lidar" type="ray">
+    <always_on>true</always_on>
+    <visualize>false</visualize>
+    <update_rate>10</update_rate>
+    <ray>
+      <scan>
+        <horizontal>
+          <samples>360</samples>
+          <resolution>1.000000</resolution>
+          <min_angle>0.000000</min_angle>
+          <max_angle>6.283185</max_angle>
+        </horizontal>
+      </scan>
+      <range>
+        <min>1.20000</min>
+        <max>10.0</max>
+        <resolution>0.015000</resolution>
+      </range>
+      <noise>
+        <type>gaussian</type>
+        <mean>0.0</mean>
+        <stddev>0.01</stddev>
+      </noise>
+    </ray>
+    <plugin name="scan" filename="libgazebo_ros_ray_sensor.so">
+      <ros>
+        <remapping>~/out:=scan</remapping>
+      </ros>
+
+      <output_type>sensor_msgs/LaserScan</output_type>
+      <frame_name>lidar_link</frame_name>
+    </plugin>
+  </sensor>
+</gazebo>
+
+
+  <ros2_control name="GazeboSystem" type="system">
+  <hardware>
+    <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+  </hardware>
+  
+  <joint name="boom_angle">
+    <command_interface name="velocity"/>
+    <state_interface name="position">
+     <param name="initial_value">0.0</param>
+    </state_interface>
+    <state_interface name="velocity"/>
+  </joint>
+
+  <joint name="telescope_length">
+    <command_interface name="velocity"/>
+    <state_interface name="position">
+     <param name="initial_value">0.1</param>
+    </state_interface>
+    <state_interface name="velocity"/>
+  </joint>
+
+  <joint name="fork_angle"> <!-- It has to be renamed to bucket-->
+    <command_interface name="velocity"/>
+    <state_interface name="position">
+         <param name="initial_value">0.0</param>
+    </state_interface>
+    <state_interface name="velocity"/>
+  </joint>
+
+   <joint name="center_link">
+    <command_interface name="velocity">
+      <param name="min">-10</param>
+      <param name="max">10</param>
+    </command_interface>
+    <state_interface name="position">
+         <param name="initial_value">0.0</param>
+    </state_interface>
+    <state_interface name="velocity"/>
+  </joint>
+
+  <joint name="back_right_wheel_joint">
+    <command_interface name="velocity">
+      <param name="min">-1000</param>
+      <param name="max">1000</param>
+    </command_interface>
+    <state_interface name="position">
+      <param name="initial_value">0.0</param>
+    </state_interface>
+  </joint>
+
+  <joint name="back_left_wheel_joint">
+    <command_interface name="velocity">
+      <param name="min">-1000</param>
+      <param name="max">1000</param>
+    </command_interface>
+    <state_interface name="position">
+      <param name="initial_value">0.0</param>
+    </state_interface>
+  </joint>
+
+  <joint name="front_left_wheel_joint">
+    <command_interface name="velocity">
+      <param name="min">-1000</param>
+      <param name="max">1000</param>
+    </command_interface>
+    <state_interface name="position">
+      <param name="initial_value">0.0</param>
+    </state_interface>
+  </joint>
+
+  <joint name="front_right_wheel_joint">
+    <command_interface name="velocity">
+      <param name="min">-1000</param>
+      <param name="max">1000</param>
+    </command_interface>
+    <state_interface name="position">
+      <param name="initial_value">0.0</param>
+    </state_interface>
+  </joint>
+  
+<!-- controllers for moveit cylinder joints-->
+   <!-- <joint name="A1_joint">
+      <param name="initial_position">0</param>
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    
+    <joint name="A2_joint">
+      <param name="initial_position">0</param>
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+
+-->
+
+</ros2_control>
+
+
+  <!-- ROS Control plugin for Gazebo -->
+  <gazebo>
+    <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+      <robotNamespace>AvantModel</robotNamespace>
+      <robot_param_node>robot_state_publisher</robot_param_node>
+      <parameters>$(find avant_description)/config/Joint_velocity_control.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+  <!-- wheel odometry plugin for the front wheels-->
+  <gazebo>
+    <plugin name='diff_drive' filename='libgazebo_ros_diff_drive.so'>
+      <ros>
+        <namespace></namespace>
+        <remapping>odom:=wheel_odometry</remapping>
+      </ros>
+
+      <!-- wheels -->
+      <left_joint>front_left_wheel_joint</left_joint>
+      <right_joint>front_right_wheel_joint</right_joint>
+
+      <!-- kinematics -->
+      <wheel_separation>0.4827</wheel_separation>
+      <wheel_diameter>0.6414</wheel_diameter>
+
+      <!-- output -->
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>false</publish_odom_tf> <!-- originally disabled-->
+      <publish_wheel_tf>false</publish_wheel_tf>
+
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>avant</robot_base_frame>
+    </plugin>
+  </gazebo>
+
+  <gazebo reference="middle_cylinder">
+    <sensor name="gps_sensor" type="gps">
+        <always_on>true</always_on>
+        <update_rate>10.0</update_rate>
+        <plugin name="gps_controller" filename="libgazebo_ros_gps_sensor.so">
+            <ros>
+                <remapping>gps_controller/out:=GNSS</remapping>
+            </ros>
+            <frame_name>gps_link</frame_name>
+        </plugin>
+    </sensor>
+</gazebo>
+
+
+</robot>

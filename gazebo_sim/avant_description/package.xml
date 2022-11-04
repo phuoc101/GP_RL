@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>avant_description</name>
+  <version>0.1.0</version>
+  <description>
+    URDF description of the Avant robot
+  </description>
+  <license>BSD-3</license>
+
+  <maintainer email="teemu.mokkonen@tuni.fi">Teemu Mokkonen</maintainer>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!--Build depends that user must have to build the package-->
+  <build_depend>xacro</build_depend>
+  <build_depend>ros2_control</build_depend>
+  <build_depend>gazebo_ros2_control</build_depend>
+  <build_depend>ros2_controllers</build_depend>
+  <build_depend>robot_localization</build_depend>
+
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>rviz</exec_depend>
+
+  <depend>urdf</depend>
+  <export>
+    <build_type>ament_cmake</build_type>
+    <!-- gazebo_ros_paths_plugin automatically adds these to
+        GAZEBO_PLUGIN_PATH and GAZEBO_MODEL_PATH when you do this export inside
+        the package.xml file. You can than use URIs of type model://my_package/stuff. -->                                                        
+    <gazebo_ros 
+    GAZEBO_MODEL_PATH="${prefix}/../maps"
+/>
+
+</export>
+</package>

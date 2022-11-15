@@ -161,7 +161,8 @@ class GPModel:
             return sum(np.sqrt(x1**2 + x2**2))
 
         y_pred_mean = y_pred.mean.detach().cpu().numpy()
-        y_pred_conf = y_pred.confidence_region()[0].detach().cpu().numpy()
+        y_pred_conf = y_pred.confidence_region()
+        y_pred_conf = np.array([c.detach().cpu().numpy() for c in y_pred_conf])
 
         logger.debug(f"actual y shape: {y_actual.shape}")
         logger.debug(f"Number of tasks: {y_pred.num_tasks}")

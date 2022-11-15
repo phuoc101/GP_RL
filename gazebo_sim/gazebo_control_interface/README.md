@@ -32,5 +32,3 @@ ros2 topic pub /manipulator_commands sensor_msgs/msg/JointState "{name: ['boom',
 This package is used with avant description package which launches this package when needed.: 
 
 There you can find commands which will instruct how to run each controller mode and how the simulation is started!
-
-

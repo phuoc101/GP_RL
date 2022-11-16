@@ -30,10 +30,10 @@ def main(opts):
     vel_pred_mean = np.ones(len(pos_pred_mean_delta)) * vel_init
     for i, delta in enumerate(pos_pred_mean_delta):
         if i > 0:
-            pos_pred_mean[i] = pos_pred_mean[i-1] + delta
+            pos_pred_mean[i] = pos_pred_mean[i - 1] + delta
     for i, delta in enumerate(vel_pred_mean_delta):
         if i > 0:
-            vel_pred_mean[i] = vel_pred_mean[i-1] + delta
+            vel_pred_mean[i] = vel_pred_mean[i - 1] + delta
     plt.title(f"GP model prediction on {opts.test}")
     plt.plot(real_pos, label="real_pos")
     plt.plot(pos_pred_mean, label="pred_pos")
@@ -48,10 +48,18 @@ if __name__ == "__main__":
     logger.add(sys.stderr, level="DEBUG")
     parser = argparse.ArgumentParser()
     parser.add_argument(
+        "-t",
         "--train",
         type=str,
         default="../data/avant_TrainingData.pkl",
         help="Path to training data",
+    )
+    parser.add_argument(
+        "-T",
+        "--test",
+        type=str,
+        default="../data/avant_TestData.pkl",
+        help="Path to test data",
     )
     parser.add_argument(
         "-gp",
@@ -59,12 +67,6 @@ if __name__ == "__main__":
         type=str,
         default="./results/GPmodel.pkl",
         help="Path to training data",
-    )
-    parser.add_argument(
-        "--test",
-        type=str,
-        default="../data/avant_TestData.pkl",
-        help="Path to test data",
     )
     parser.add_argument(
         "--gp-train-iter",

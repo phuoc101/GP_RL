@@ -45,6 +45,8 @@ boom_velocity_delta_tarray = []
 boom_input_array = []
 boom_input_time_array = []
 
+joint_states_drop_rate = 19
+drop = 0
 
 
 while reader.has_next():
@@ -59,10 +61,11 @@ while reader.has_next():
             boom_start_nanosec = t 
         diff = (t - boom_start_nanosec)/10e8
         print("| t = " + str(diff)+" seconds |")
-
-        boom_position_array.append(msg.position[2])
-        boom_velocity_array.append(msg.velocity[2])
-        boom_time_array.append(diff)
+        if (drop % joint_states_drop_rate ==0):
+            boom_position_array.append(msg.position[2])
+            boom_velocity_array.append(msg.velocity[2])
+            boom_time_array.append(diff)
+        drop +=1
 
     if topic == "/input_valve_cmd":
         if len(boom_input_time_array)==0:

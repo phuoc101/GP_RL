@@ -4,6 +4,7 @@ from glob import glob
 
 
 package_name = 'gazebo_control_interface'
+submodul_name = "gazebo_control_interface/GaussianProcess"
 
 setup(
     name=package_name,
@@ -25,7 +26,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            "control_client = gazebo_control_interface.gazebo_control_client:main"
+            "control_client = gazebo_control_interface.gazebo_control_client:main",
+            "control_client_gp_node = gazebo_control_interface.gp_control_node:main"
         ],
     },
 )

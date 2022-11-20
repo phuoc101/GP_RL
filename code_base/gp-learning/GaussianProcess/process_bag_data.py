@@ -30,7 +30,7 @@ def get_rosbag_options(path, serialization_format='cdr'):
 
 
 reader = rosbag2_py.SequentialReader()
-bag_path = "mani_with_cmd"
+bag_path = "mani_with_input_filtered"
 storage_options, converter_options = get_rosbag_options(bag_path)
 
 reader.open(storage_options, converter_options)
@@ -40,17 +40,11 @@ topic_types = reader.get_all_topics_and_types()
 type_map = {topic_types[i].name: topic_types[i].type for i in range(len(topic_types))}
 
 
-telescope_array = []
-telescope_time_array = []
 
-
+boom_start_nanosec = 0.0
 boom_array = []
 boom_time_array = []
 
-
-
-boom_start_nanosec = 0.0
-telescope_start_nanosec = 0.0
 
 
 while reader.has_next():
@@ -59,19 +53,16 @@ while reader.has_next():
         msg_type = get_message(type_map[topic])
         msg = deserialize_message(data, msg_type)
 
-
-    if topic == "/boom_inclinometer":
-        if len(telescope_array)==0:
-            telescope_start_nanosec = t 
-        diff = (t - telescope_start_nanosec)/10e8#
-        telescope_array.append(msg.linear_acceleration.z)
-        boom_array.append(msg.linear_acceleration.y)
-        telescope_time_array.append(diff)
-
+    if topic == "/boom_inclinometer/filtered":
+        if len(boom_array)==0:
+            boom_start_nanosec = t 
+        diff = (t - boom_start_nanosec)/10e8
+        print("| t = " + str(diff)+" seconds |")
+        boom_array.append(msg.position[0])
+        boom_time_array.append(diff)
 
 
 
-plt.plot(telescope_time_array,telescope_array)
-plt.plot(telescope_time_array,boom_array)
 
+plt.plot(boom_time_array,boom_array)
 plt.show()

@@ -40,7 +40,7 @@ boom_time_array = []
 
 
 boom_position_delta_array = []
-boom_velocity_delta_tarray = []
+boom_velocity_delta_array = []
 
 boom_input_array = []
 boom_input_time_array = []
@@ -88,5 +88,7 @@ plt.plot(boom_input_time_array,boom_input_array)
 
 #TODO downsampling and state difference
 
+boom_position_delta_array = (np.diff(np.array(boom_position_array))).tolist()
+boom_velocity_delta_array = (np.diff(np.array(boom_velocity_array))).tolist()
 
 plt.show()

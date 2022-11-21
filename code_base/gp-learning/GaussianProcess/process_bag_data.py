@@ -20,7 +20,7 @@ def get_rosbag_options(path, serialization_format='cdr'):
 
 
 reader = rosbag2_py.SequentialReader()
-bag_path = "mani_with_input_filtered"
+bag_path = "manipulator_input_w_control_boom_trial_6"
 storage_options, converter_options = get_rosbag_options(bag_path)
 
 reader.open(storage_options, converter_options)
@@ -45,7 +45,7 @@ boom_velocity_delta_array = []
 boom_input_array = []
 boom_input_time_array = []
 
-joint_states_drop_rate = 19
+joint_states_drop_rate = 10
 drop = 0
 
 
@@ -72,8 +72,14 @@ while reader.has_next():
             boom_input_start_nanosec = t 
         diff = (t - boom_start_nanosec)/10e8
         print("| t = " + str(diff)+" seconds |")
+
+        # for positive u (pulling joystick toward yourself) --> minimum is 0 and maximum is 99 (take 100)
+        # for negative u (pulling joystick away from yourself) --> the farther away joystick is (full force) --> 157 and closer to you then 250 
+        # ---> for negative force -1 --> 157 and -0.001 --> 250
+
+        # 1 - (message-150 / 100)  157 --> -1 and 254/255 --> -0.0 ===> 1 - (message - 155)/100
         if (msg.position[1]>100):
-            boom_input_array.append(-(msg.position[1]-150)/100)
+            boom_input_array.append(    -(1 -(msg.position[1]-155)/100)  )
         else:
             boom_input_array.append(msg.position[1]/100)
 
@@ -82,10 +88,10 @@ while reader.has_next():
 print("position/velocity length: " + str(len(boom_position_array)))
 print("input length: " + str(len(boom_input_array)))
 
-plt.plot(boom_time_array,boom_position_array)
-plt.plot(boom_time_array,boom_velocity_array)
-plt.plot(boom_input_time_array,boom_input_array)
-
+plt.plot(boom_time_array,boom_position_array,label="position")
+plt.plot(boom_time_array,boom_velocity_array,label="velocity")
+plt.plot(boom_input_time_array,boom_input_array,label="input")
+plt.legend()
 #TODO downsampling and state difference
 
 boom_position_delta_array = (np.diff(np.array(boom_position_array))).tolist()

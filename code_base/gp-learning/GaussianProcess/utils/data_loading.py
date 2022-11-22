@@ -27,6 +27,7 @@ def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=Tru
     if num_inputs == 3:
         X = training_data["X1_xvu"]
         y = np.vstack((training_data["Y1"], training_data["Y2"])).T
+        print(f"Shape X: {X.shape}, Shape y: {y.shape}")
     elif num_inputs == 2:
         X = training_data["X1_xu"]
         y = np.vstack(training_data["Y1"])
@@ -34,7 +35,9 @@ def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=Tru
     mean_states, std_states = get_mean_std(X)
     # mean_states = np.zeros(shape=std_states.shape)  # for simplicity
     if normalize:
-        normalize_with_mean_std(X1=X, y1=y, mean_states=mean_states, std_states=std_states)
+        normalize_with_mean_std(
+            X1=X, y1=y, mean_states=mean_states, std_states=std_states
+        )
     else:
         mean_states = np.zeros(shape=mean_states.shape)
         std_states = np.ones(shape=std_states.shape)

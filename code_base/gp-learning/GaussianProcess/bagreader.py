@@ -1,5 +1,4 @@
-# Copy from
-# https://github.com/ros2/rosbag2/blob/master/rosbag2_py/test/test_sequential_reader.py
+import os
 import sys
 import rosbag2_py
 from rclpy.serialization import deserialize_message
@@ -8,6 +7,7 @@ import argparse
 from loguru import logger
 import matplotlib.pyplot as plt
 import pickle
+import numpy as np
 
 
 def get_rosbag_options(path, serialization_format="cdr"):
@@ -80,8 +80,19 @@ def visualize_data(msg_dict):
 
 
 def export_data(msg_dict, output):
+    x = np.array(msg_dict["boom_position"])
+    v = np.array(msg_dict["boom_velocity"])
+    u = np.array(msg_dict["input_cmd"])
+    Y1 = np.concatenate(([0], np.diff(x)))
+    Y2 = np.concatenate(([0], np.diff(v)))
+    xvu = np.stack([x, v, u], axis=1)
+    logger.debug(f"xvu shape: {xvu.shape}")
+    logger.debug(f"Y1 shape: {Y1.shape}")
+    logger.debug(f"Y2 shape: {Y2.shape}")
+    data = {"X1_xvu": xvu, "Y1": Y1, "Y2": Y2}
     with open(output, "wb") as f:
-        pickle.dump(msg_dict, f)
+        pickle.dump(data, f)
+        logger.info(f"Data saved to {os.path.abspath(output)}")
         f.close()
 
 

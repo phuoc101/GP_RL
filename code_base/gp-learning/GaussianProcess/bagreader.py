@@ -8,6 +8,7 @@ from loguru import logger
 import matplotlib.pyplot as plt
 import pickle
 import numpy as np
+from skimage.measure import block_reduce
 
 
 def get_rosbag_options(path, serialization_format="cdr"):
@@ -67,41 +68,79 @@ def sync_input_sensor(bag_path, sensor_topic, input_topic):
     return msg_dict
 
 
-def visualize_data(msg_dict):
-    logger.debug(f"Position readings count: {len(msg_dict['boom_position'])}")
-    logger.debug(f"Velocity readings count: {len(msg_dict['boom_velocity'])}")
-    logger.debug(f"Input cmd count: {len(msg_dict['input_cmd'])}")
-
-    plt.plot(msg_dict["timestamp"], msg_dict["input_cmd"], label="input u")
-    plt.plot(msg_dict["timestamp"], msg_dict["boom_position"], label="boom position")
-    plt.plot(msg_dict["timestamp"], msg_dict["boom_velocity"], label="boom velocity")
-    plt.legend()
-    plt.show()
-
-
-def export_data(msg_dict, output):
+def data_handling(msg_dict, downsample, downsampling_factor):
     x = np.array(msg_dict["boom_position"])
     v = np.array(msg_dict["boom_velocity"])
     u = np.array(msg_dict["input_cmd"])
     Y1 = np.concatenate(([0], np.diff(x)))
     Y2 = np.concatenate(([0], np.diff(v)))
-    xvu = np.stack([x, v, u], axis=1)
+    orig_length = len(x)
+    full_data = np.stack([x, v, u, Y1, Y2], axis=1)
+    if downsample:
+        logger.debug(f"full data shape before downsampling: {full_data.shape}")
+        full_data = block_reduce(
+            full_data.T,
+            block_size=(1, downsampling_factor),
+            func=np.mean,
+        )
+        full_data = full_data.T
+        msg_dict["timestamp"] = msg_dict["timestamp"][::downsampling_factor]
+        logger.debug(f"full data shape after downsampling: {full_data.shape}")
+    if orig_length % downsampling_factor != 0:
+        full_data = full_data[:-2, :]
+        msg_dict["timestamp"] = msg_dict["timestamp"][:-2]
+    xvu = full_data[:, 0:3]
+    Y1 = full_data[:, 3]
+    Y2 = full_data[:, 4]
     logger.debug(f"xvu shape: {xvu.shape}")
     logger.debug(f"Y1 shape: {Y1.shape}")
     logger.debug(f"Y2 shape: {Y2.shape}")
-    data = {"X1_xvu": xvu, "Y1": Y1, "Y2": Y2}
+    data = {"X1_xvu": xvu, "Y1": Y1, "Y2": Y2, "timestamp": msg_dict["timestamp"]}
+    return data
+
+
+def export_data(data, output):
     with open(output, "wb") as f:
         pickle.dump(data, f)
         logger.info(f"Data saved to {os.path.abspath(output)}")
         f.close()
 
 
+def visualize_data(data, bag, downsample, downsampling_factor):
+    logger.debug(f"Position readings count: {len(data['X1_xvu'][:,0])}")
+    logger.debug(f"Velocity readings count: {len(data['X1_xvu'][:,1])}")
+    logger.debug(f"Input cmd count: {len(data['X1_xvu'][:,2])}")
+    title = f"Plots with data from bag {bag}"
+    if downsample:
+        title += f", data downsampled with factor {downsampling_factor}"
+    fig, ax = plt.subplots(3)
+    fig.suptitle(title)
+    ax[0].plot(data["timestamp"], data["X1_xvu"][:, 0], label="boom position")
+    ax[0].plot(data["timestamp"], data["X1_xvu"][:, 1], label="boom velocity")
+    ax[0].plot(data["timestamp"], data["X1_xvu"][:, 2], label="input u")
+    ax[1].plot(data["timestamp"], data["Y1"], label="Y1")
+    ax[2].plot(data["timestamp"], data["Y2"], label="Y2")
+    for a in ax:
+        a.legend()
+    plt.show()
+
+
 def main(opts):
     msg_dict = sync_input_sensor(
         bag_path=opts.bag, sensor_topic=opts.sensor_topic, input_topic=opts.input_topic
     )
-    visualize_data(msg_dict=msg_dict)
-    export_data(msg_dict, opts.output_file)
+    data = data_handling(
+        msg_dict=msg_dict,
+        downsample=opts.downsample,
+        downsampling_factor=opts.downsampling_factor,
+    )
+    visualize_data(
+        data=data,
+        bag=opts.bag,
+        downsample=opts.downsample,
+        downsampling_factor=opts.downsampling_factor,
+    )
+    export_data(data, opts.output_file)
 
 
 if __name__ == "__main__":
@@ -131,6 +170,19 @@ if __name__ == "__main__":
         "--output-file",
         default="./manipulator_input_w_control_boom_trial_6.pkl",
         help="name of output pkl file",
+    )
+    parser.add_argument(
+        "-d",
+        "--downsample",
+        action="store_true",
+        help="Downsample by averaging",
+    )
+    parser.add_argument(
+        "-df",
+        "--downsampling-factor",
+        default=2,
+        type=int,
+        help="Downsample by averaging",
     )
     opts = parser.parse_args()
     main(opts)

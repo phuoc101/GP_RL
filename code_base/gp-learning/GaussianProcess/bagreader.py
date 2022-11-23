@@ -72,21 +72,30 @@ def data_handling(msg_dict, downsample, downsampling_factor):
     x = np.array(msg_dict["boom_position"])
     v = np.array(msg_dict["boom_velocity"])
     u = np.array(msg_dict["input_cmd"])
+    if downsample:
+        logger.debug(f"x shape before downsampling: {x.shape}")
+        # full_data = block_reduce(
+        #     full_data.T,
+        #     block_size=(1, downsampling_factor),
+        #     func=np.mean,
+        # )
+        # full_data = full_data.T
+        x = block_reduce(
+            x, block_size=downsampling_factor, func=np.mean, cval=np.mean(x)
+        )
+        v = block_reduce(
+            v, block_size=downsampling_factor, func=np.mean, cval=np.mean(x)
+        )
+        u = block_reduce(
+            u, block_size=downsampling_factor, func=np.mean, cval=np.mean(u)
+        )
+        msg_dict["timestamp"] = msg_dict["timestamp"][::downsampling_factor]
+        logger.debug(f"x shape after downsampling: {x.shape}")
     Y1 = np.concatenate(([0], np.diff(x)))
     Y2 = np.concatenate(([0], np.diff(v)))
     orig_length = len(x)
     full_data = np.stack([x, v, u, Y1, Y2], axis=1)
-    if downsample:
-        logger.debug(f"full data shape before downsampling: {full_data.shape}")
-        full_data = block_reduce(
-            full_data.T,
-            block_size=(1, downsampling_factor),
-            func=np.mean,
-        )
-        full_data = full_data.T
-        msg_dict["timestamp"] = msg_dict["timestamp"][::downsampling_factor]
-        logger.debug(f"full data shape after downsampling: {full_data.shape}")
-    if orig_length % downsampling_factor != 0:
+    if downsample and orig_length % downsampling_factor != 0:
         full_data = full_data[:-2, :]
         msg_dict["timestamp"] = msg_dict["timestamp"][:-2]
     xvu = full_data[:, 0:3]

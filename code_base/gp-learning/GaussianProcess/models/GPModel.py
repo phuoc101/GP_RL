@@ -35,7 +35,7 @@ class GPModel:
             self.set_processor_cpu()
 
     def initialize_model(self, path_train_data, path_model=""):
-        if not os.path.isfile(path_model):
+        if not os.path.isfile(path_model) or self.force_train:
             # initialize models, train, save
             # load train data
             (

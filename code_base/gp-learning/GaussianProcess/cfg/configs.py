@@ -9,6 +9,7 @@ def get_train_config():
         "verbose": 1,
         "target_state": np.array([0, 0]),
         "Force_CPU": False,
+        "force_train": False,
     }
 
 
@@ -57,4 +58,5 @@ def get_model_fields():
         "N_trajs",
         "NNlayers",
         "Force_CPU",
+        "force_train",
     ]

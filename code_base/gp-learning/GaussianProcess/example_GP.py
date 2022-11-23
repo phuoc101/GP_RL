@@ -24,6 +24,7 @@ def main(opts):
         path_train_data=opts.train,
     )
     pred_mean, pred_conf = model.eval(path_test_data=opts.test)
+    pred_mean *= opts.sampling_time_ratio
     # X_test is (pos, vel, u)
     X_test, y_test = load_test_data(data_path=opts.test)
     X_test = X_test.numpy()
@@ -67,6 +68,12 @@ if __name__ == "__main__":
         type=str,
         default=dir_path / "../data/avant_TrainingData.pkl",
         help="Path to training data",
+    )
+    parser.add_argument(
+        "--sampling-time-ratio",
+        type=float,
+        default=1,
+        help="test_sampling_time/train_sampling_time",
     )
     parser.add_argument(
         "-gp",

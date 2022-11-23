@@ -83,12 +83,11 @@ def data_handling(msg_dict, downsample, downsampling_factor):
         x = block_reduce(
             x, block_size=downsampling_factor, func=np.mean, cval=np.mean(x)
         )
+        # x = x[::downsampling_factor]
         v = block_reduce(
             v, block_size=downsampling_factor, func=np.mean, cval=np.mean(x)
         )
-        u = block_reduce(
-            u, block_size=downsampling_factor, func=np.mean, cval=np.mean(u)
-        )
+        u = u[::downsampling_factor]
         msg_dict["timestamp"] = msg_dict["timestamp"][::downsampling_factor]
         logger.debug(f"x shape after downsampling: {x.shape}")
     Y1 = np.concatenate(([0], np.diff(x)))

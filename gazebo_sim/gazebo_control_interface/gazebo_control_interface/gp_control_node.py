@@ -39,6 +39,7 @@ from std_msgs.msg import Float64MultiArray
 from sensor_msgs.msg import JointState
 from pathlib import Path
 from gazebo_control_interface import configs, GPModel
+from rclpy.time import Time
 
 import matplotlib.pyplot as plt
 import torch
@@ -93,6 +94,10 @@ class SteeringActionClient(Node):
         self.joint_state_sub = self.create_subscription(JointState, "joint_states", self.state_callback, 10)
         self.command_sub_ = self.create_subscription(JointState, "motion_commands", self.command_callback, 10)
         self.manipulator_vel_sub = self.create_subscription(JointState, "manipulator_commands", self.manipulator_callback, 10)
+        
+        self.prev_pose = None
+        self.prev_time = None
+        self.logger = 0
 
         self.declare_parameters(
             namespace="",
@@ -139,6 +144,8 @@ class SteeringActionClient(Node):
         self.center_wheel_dist = 0.6
         self.dist_between_wheels = 0.6414
 
+        self.prev_est_time = self.get_clock().now().nanoseconds / 1e9
+
         self.prev_msg = []
         self.prev_vel = 0.0
         self.prev_command = 0.0
@@ -148,12 +155,13 @@ class SteeringActionClient(Node):
         initialize gp model
         """
         config = configs.get_train_config()
-        config = {**config, "GP_training_iter": self.opts.gp_train_iter, "verbose": self.opts.verbose}
+        config = {**config, "GP_training_iter": self.opts.gp_train_iter, "verbose": self.opts.verbose, "force_train": True}
         model = GPModel.GPModel(**config)
         model.initialize_model(
             path_model=self.opts.gpmodel,
             path_train_data=self.opts.train, # train model on the fly
         )
+       # pred_mean *= self.opts.sampling_time_ratio
 
         return model
 
@@ -284,7 +292,11 @@ class SteeringActionClient(Node):
 
             if name == "boom_angle":
                 self.boom_pose = msg.position[i]
-                self.boom_vel = msg.velocity[i] # scale the vel to match given vel
+                if (self.prev_pose != None and self.prev_time != None):           
+                    self.boom_vel = (self.boom_pose - self.prev_pose) / ((Time.from_msg(msg.header.stamp).nanoseconds  / 1e9) - self.prev_time) * 10 #msg.velocity[i] * 10# scale the vel to match given vel   
+                self.prev_pose = self.boom_pose
+                self.prev_time = Time.from_msg(msg.header.stamp).nanoseconds  / 1e9
+                #self.boom_vel = #msg.velocity[i] * 10# scale the vel to match given vel
 		
             if name == "fork_angle":
                 self.bucket_pose = msg.position[i]
@@ -338,14 +350,15 @@ class SteeringActionClient(Node):
             msg (ROS2 JointState): JointState message containting the wanted values for the control the manipulator
         """
         vel_boom = msg.velocity[BOOM] #* self.gain_boom
-        self.get_logger().info("input valve command: {} \n".format(vel_boom))
+        vel_estimate = vel_boom * 10
+        #self.get_logger().info("input valve command: {} \n".format(vel_boom))
         vel_tel = msg.velocity[TELESCOPE]
         vel_bucket = msg.velocity[BUCKET] * self.gain_bucket
         command = torch.from_numpy(np.asarray([self.boom_pose, self.boom_vel, vel_boom])).float()
         
         model_input  = torch.reshape(command,(1,3))
         model_input = model_input.to(self.model.device, self.model.dtype)
-        boom_vel = self.model.predict(model_input)
+        boom_prediction = self.model.predict(model_input)
 
         msg_out = Float64MultiArray()
 
@@ -359,27 +372,34 @@ class SteeringActionClient(Node):
         if (self.bucket_pose < BUCKET_LOW_LIM and vel_bucket < 0.0) or (self.bucket_pose >= BUCKET_HIGH_LIM and vel_bucket > 0.0):
             vel_bucket = 0.0
 
+
+        time = Time.from_msg(msg.header.stamp).nanoseconds / 1e9
+        #self.get_logger().info("prev time: {} \n".format(self.prev_est_time))
+        #self.get_logger().info("time now : {} \n".format(time))
+        vel = (boom_prediction.mean[0][0]) / (time - self.prev_est_time) * 4
+    
+        self.prev_est_time = time
         # Send velocity to the ros2 controller which will move the joints
-        self.get_logger().info("predicted vel: {} \n".format(boom_vel.mean[0][1]))
-        self.get_logger().info("boom vel: {} \n".format(self.boom_vel))
-        self.get_logger().info("predicted pos: {} \n".format(boom_vel.mean[0][0]))
-        self.get_logger().info("boom pose: {} \n".format(self.boom_pose))
+        if self.logger == 50:
+            self.get_logger().info("predicted pos: {} \n".format(boom_prediction.mean[0][0]))
+            self.get_logger().info("boom pose: {} \n".format(self.boom_pose))
+            self.get_logger().info("calculated vel: {} \n".format(self.boom_vel))
+            self.get_logger().info("estimated vel: {} \n".format(vel.item()))
+            self.logger = 0
 		# float(boom_vel.mean[0][1]),
 
-
         self.msg_out.position[0] =(self.boom_pose)
-        self.msg_out.position[1] = boom_vel.mean[0][0]
+        self.msg_out.position[1] = boom_prediction.mean[0][0]
         self.msg_out.velocity[0] = self.boom_vel
-        self.msg_out.velocity[1] = boom_vel.mean[0][1]
-
+        self.msg_out.velocity[1] = vel.item() 
+#
         self.state_publisher.publish(self.msg_out)
 
         
-        msg_out.data = [vel_boom, vel_tel, vel_bucket]
-
-        self.prev_command = 0.5
+        msg_out.data = [vel.item(), vel_tel, vel_bucket]
         
         self.manipulator_speed_publisher.publish(msg_out)
+        self.logger += 1
 
 
 def main(args=None):
@@ -418,6 +438,11 @@ def main(args=None):
         type=str,
         default=dir_path / "../data/avant_TestData.pkl",
         help="Path to test data",
+    )
+    parser.add_argument(
+        "--force-train",
+        action="store_false",
+        help="Force retraining",
     )
     opts = parser.parse_args()
     rclpy.init()

@@ -16,6 +16,7 @@ class GPModel:
         super(GPModel, self).__init__()
         self.data_fields = kwargs["GPModel_datafields"]
         self.verbose = kwargs["verbose"]
+        self.force_train = kwargs["force_train"]
         # verbose level: Basic/Critical
         if self.verbose > 3:
             logger.info("Configuring model with parameters:")
@@ -35,7 +36,8 @@ class GPModel:
             self.set_processor_cpu()
 
     def initialize_model(self, path_train_data, path_model=""):
-        if not os.path.isfile(path_model):
+        print(self.force_train)
+        if not os.path.isfile(path_model) or self.force_train:
             # initialize models, train, save
             # load train data
             (

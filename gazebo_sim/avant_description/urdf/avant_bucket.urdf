@@ -2065,6 +2065,7 @@
      <param name="initial_value">0.0</param>
     </state_interface>
     <state_interface name="velocity"/>
+    <state_interface name="effort"/>
   </joint>
 
   <joint name="telescope_length">
@@ -2073,6 +2074,7 @@
      <param name="initial_value">0.1</param>
     </state_interface>
     <state_interface name="velocity"/>
+    <state_interface name="effort"/>
   </joint>
 
   <joint name="fork_angle"> <!-- It has to be renamed to bucket-->
@@ -2081,6 +2083,7 @@
          <param name="initial_value">0.0</param>
     </state_interface>
     <state_interface name="velocity"/>
+    <state_interface name="effort"/>
   </joint>
 
    <joint name="center_link">
@@ -2092,6 +2095,7 @@
          <param name="initial_value">0.0</param>
     </state_interface>
     <state_interface name="velocity"/>
+    <state_interface name="effort"/>
   </joint>
 
   <joint name="back_right_wheel_joint">

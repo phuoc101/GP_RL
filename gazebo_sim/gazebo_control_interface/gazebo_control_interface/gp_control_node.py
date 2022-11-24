@@ -296,7 +296,7 @@ class SteeringActionClient(Node):
                     self.boom_vel = (self.boom_pose - self.prev_pose) / ((Time.from_msg(msg.header.stamp).nanoseconds  / 1e9) - self.prev_time) * 10 #msg.velocity[i] * 10# scale the vel to match given vel   
                 self.prev_pose = self.boom_pose
                 self.prev_time = Time.from_msg(msg.header.stamp).nanoseconds  / 1e9
-                #self.boom_vel = #msg.velocity[i] * 10# scale the vel to match given vel
+                #self.boom_vel = msg.velocity[i] * 10# scale the vel to match given vel
 		
             if name == "fork_angle":
                 self.bucket_pose = msg.position[i]
@@ -376,7 +376,7 @@ class SteeringActionClient(Node):
         time = Time.from_msg(msg.header.stamp).nanoseconds / 1e9
         #self.get_logger().info("prev time: {} \n".format(self.prev_est_time))
         #self.get_logger().info("time now : {} \n".format(time))
-        vel = (boom_prediction.mean[0][0]) / (time - self.prev_est_time) * 4
+        vel = (boom_prediction.mean[0][0]) / (time - self.prev_est_time) * 8 # (8 / 10)
     
         self.prev_est_time = time
         # Send velocity to the ros2 controller which will move the joints

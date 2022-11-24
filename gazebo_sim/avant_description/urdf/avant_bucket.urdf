@@ -337,7 +337,7 @@
       </geometry>
     </collision>
 
-    <xacro:box_inertia m="1" w="0.4" h="0.4" d="0.4"/> 
+    <xacro:box_inertia m="5" w="0.4" h="0.4" d="0.4"/> 
     <!-- original <xacro:box_inertia m="1" w="0.2" h="0.2" d="0.2"/> -->
   </link>
 

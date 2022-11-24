@@ -16,7 +16,7 @@ class MinimalPublisher(Node):
     def timer_callback(self):
         msg = JointState()
         msg.header.stamp = self.get_clock().now().to_msg()
-        msg.velocity = [0.8, 0.0, 0.0]
+        msg.velocity = [-1.0, 0.0, 0.0]
         self.publisher_.publish(msg)
         print("command sent")
 

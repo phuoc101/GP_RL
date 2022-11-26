@@ -20,8 +20,7 @@ class DataSync(Node):
             history=rclpy.qos.HistoryPolicy.KEEP_LAST,
             depth=5,
         )
-        # 100 Hz
-        self.timer_period = 0.01
+        self.timer_period = 0.01  # in seconds, MODIFY THIS
         self.joint_state_sub = self.create_subscription(
             JointState, "/bag_joint_states", self.joint_state_callback, qos_profile
         )
@@ -32,7 +31,7 @@ class DataSync(Node):
         self.COLLECTING = True
         self.HAS_DATA = False
         self.timeout_cnt = 0
-        self.timeout_max = 1/self.timer_period
+        self.timeout_max = 5 / self.timer_period
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
         self.boom_position = 0
         self.boom_velocity = 0
@@ -85,7 +84,8 @@ class DataSync(Node):
                     self.COLLECTING = False
         else:
             data = self.data_handling()
-            self.export_data(data, "./out_10.pkl")
+            # MODIFY THIS, output file name
+            self.export_data(data, "./out_10Hz.pkl")
 
     def export_data(self, data, output):
         with open(output, "wb") as f:
@@ -93,16 +93,16 @@ class DataSync(Node):
             self.logger.info(f"Data saved to {os.path.abspath(output)}")
             f.close()
         self.destroy_node()
-        # rclpy.shutdown()
         sys.exit(0)
 
     def data_handling(self):
-        x = np.array(self.msg_dict["boom_position"])
-        v = np.array(self.msg_dict["boom_velocity"])
-        u = np.array(self.msg_dict["input"])
+        x = np.array(self.msg_dict["boom_position"])[1:]
+        v = np.array(self.msg_dict["boom_velocity"])[1:]
+        u = np.array(self.msg_dict["input"])[1:]
         xvu = np.stack([x, v, u], axis=1)
         Y1 = np.concatenate(([0], np.diff(x)))
         Y2 = np.concatenate(([0], np.diff(v)))
+        t = np.array(self.msg_dict["timestamp"])[1:]
         self.logger.debug(f"xvu shape: {xvu.shape}")
         self.logger.debug(f"Y1 shape: {Y1.shape}")
         self.logger.debug(f"Y2 shape: {Y2.shape}")
@@ -110,7 +110,7 @@ class DataSync(Node):
             "X1_xvu": xvu,
             "Y1": Y1,
             "Y2": Y2,
-            "timestamp": self.msg_dict["timestamp"],
+            "timestamp": t,
         }
         return data
 

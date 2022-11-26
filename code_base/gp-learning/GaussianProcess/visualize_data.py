@@ -32,7 +32,7 @@ def load_data(filename):
 
 
 def main():
-    filename = "./out_10.pkl"
+    filename = "./out_10Hz.pkl"
     data = load_data(filename)
     visualize_data(data, filename)
 

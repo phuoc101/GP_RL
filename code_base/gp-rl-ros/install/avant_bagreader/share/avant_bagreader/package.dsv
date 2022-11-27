@@ -1,0 +1,9 @@
+source;share/avant_bagreader/hook/pythonpath.ps1
+source;share/avant_bagreader/hook/pythonpath.dsv
+source;share/avant_bagreader/hook/pythonpath.sh
+source;share/avant_bagreader/hook/ament_prefix_path.ps1
+source;share/avant_bagreader/hook/ament_prefix_path.dsv
+source;share/avant_bagreader/hook/ament_prefix_path.sh
+source;../../build/avant_bagreader/share/avant_bagreader/hook/pythonpath_develop.ps1
+source;../../build/avant_bagreader/share/avant_bagreader/hook/pythonpath_develop.dsv
+source;../../build/avant_bagreader/share/avant_bagreader/hook/pythonpath_develop.sh

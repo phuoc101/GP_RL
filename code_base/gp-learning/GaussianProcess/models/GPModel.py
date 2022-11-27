@@ -14,25 +14,24 @@ torch.set_default_dtype(torch.float32)
 class GPModel:
     def __init__(self, **kwargs):
         super(GPModel, self).__init__()
-        self.data_fields = kwargs["GPModel_datafields"]
+        # self.data_fields = kwargs["GPModel_datafields"]
         self.verbose = kwargs["verbose"]
         # verbose level: Basic/Critical
-        if self.verbose > 3:
-            logger.info("Configuring model with parameters:")
+        if self.verbose >= 3:
+            logger.info("===== Configuring GP model with parameters =====")
         for key, value in kwargs.items():
-            if key in self.data_fields:
-                setattr(self, key, value)
-                # verbose level: Trace Full
-                if self.verbose > 3:
-                    logger.info(f"attribute {key}: {value}")
+            setattr(self, key, value)
+            # verbose level: Trace Full
+            if self.verbose >= 3:
+                logger.info(f"attribute {key}: {value}")
         self.configs = kwargs
 
         # set device
-        if not self.Force_CPU:
-            self.set_processor()
+        if not self.force_cpu:
+            self.set_device()
         else:
             logger.info("Forcing CPU as processor...")
-            self.set_processor_cpu()
+            self.set_device_cpu()
 
     def initialize_model(self, path_train_data, path_model=""):
         if not os.path.isfile(path_model) or self.force_train:
@@ -55,7 +54,9 @@ class GPModel:
             logger.debug(f"y train shape: {self.y_train.shape}")
             if self.verbose > 0:
                 logger.info(
-                    f"Loaded training dataset {path_train_data} with {len(self.X_train)} datapoints"
+                    "Loaded training dataset {} with {} datapoints".format(
+                        path_train_data, len(self.X_train)
+                    )
                 )
 
             self.likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(
@@ -89,7 +90,7 @@ class GPModel:
         # ---- Optimize GP ----- #
         # Time the training process
         start_model_training = time.perf_counter()
-        training_iter = self.GP_training_iter
+        training_iter = self.gp_training_iter
 
         # Find optimal model hyperparameters
         self.model.train()
@@ -116,14 +117,18 @@ class GPModel:
             loss.backward()
             if self.verbose > 0:
                 logger.info(
-                    f"Iter {i+1}/{training_iter} - Loss: {loss:.3f} noise: {self.model.likelihood.noise.item():.3f}"
+                    "Iter {}/{} - Loss: {:.3f} noise: {:.3f}".format(
+                        i + 1, training_iter, loss, self.model.likelihood.noise.item()
+                    )
                 )
             optimizer.step()
         end_model_training = time.perf_counter()
         elapsed_model_training = end_model_training - start_model_training
         if self.verbose > 0:
             logger.info(
-                f"GP Models trained in {elapsed_model_training:.3f}s, with {len(self.X_train)} data points"
+                "GP Models trained in {:.3f}s, with {} data points".format(
+                    elapsed_model_training, len(self.X_train)
+                )
             )
         # set models into evaluation (predictive posterior) mode
         self.model.eval()
@@ -152,7 +157,9 @@ class GPModel:
         elapsed_GPQueryingBatch = t2_GPQueryingBatch - t1_GPQueryingBatch
         if self.verbose > 1:
             logger.info(
-                f"GP models queried in {elapsed_GPQueryingBatch:.3f} seconds, with {len(X_test)} data points"
+                "GP models queried in {:.3f} seconds, with {} data points".format(
+                    elapsed_GPQueryingBatch, len(X_test)
+                )
             )
         # calculate MSE
         y_actual = y_test.cpu().numpy()
@@ -184,7 +191,7 @@ class GPModel:
             observed_pred = self.likelihood(self.model(X))
         return observed_pred
 
-    def set_processor(self):
+    def set_device(self):
         self.is_cuda = torch.cuda.is_available()
         # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
         self.dtype = torch.float32
@@ -194,7 +201,7 @@ class GPModel:
                 f"using GPU: {self.is_cuda} - using processor: *({self.device})"
             )
 
-    def set_processor_cpu(self):
+    def set_device_cpu(self):
         self.is_cuda = False
         # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
         self.dtype = torch.float32

@@ -15,8 +15,8 @@ dir_path = Path(os.path.dirname(os.path.abspath(__file__)))
 
 
 def main(opts):
-    config = configs.get_train_config()
-    config = {**config, "GP_training_iter": opts.gp_train_iter, "verbose": opts.verbose}
+    config = configs.get_gp_train_config()
+    config = {**config, "gp_training_iter": opts.gp_train_iter, "verbose": opts.verbose}
     config["force_train"] = opts.force_train
     model = GPModel(**config)
     model.initialize_model(
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         "-v,",
         "--verbose",
         type=int,
-        default=1,
+        default=3,
         help="Path to test data",
     )
     parser.add_argument(

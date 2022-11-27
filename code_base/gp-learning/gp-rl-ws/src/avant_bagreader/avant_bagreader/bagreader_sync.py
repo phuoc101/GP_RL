@@ -50,6 +50,7 @@ class DataSync(Node):
         # Parameters declared
         self.declare_parameter("frequency", 10)
         self.declare_parameter("output", "out.pkl")
+        self.declare_parameter("num_input", 2)
         # get parameters
         self.frequency = (
             self.get_parameter("frequency").get_parameter_value().integer_value
@@ -68,6 +69,9 @@ class DataSync(Node):
             JointState, "/input_valve_cmd", self.input_callback, qos_profile
         )
         self.timer = self.create_timer(self.timer_period, self.timer_callback)
+        self.num_inputs = (
+            self.get_parameter("num_input").get_parameter_value().integer_value
+        )
 
     def joint_state_callback(self, msg):
         if self.STARTED:
@@ -123,27 +127,41 @@ class DataSync(Node):
         sys.exit(0)
 
     def data_handling(self):
-        # start from 1 to prevent random jumps in value
+        # start from index 1 to prevent random jumps in value
         t = np.array(self.msg_dict["timestamp"])[1:]
         # training input
         x = np.array(self.msg_dict["boom_position"])[1:]
         v = np.array(self.msg_dict["boom_velocity"])[1:]
         u = np.array(self.msg_dict["input"])[1:]
-        xvu = np.stack([x, v, u], axis=1)
         # training output
         Y1 = np.concatenate(([0], np.diff(x)))
         Y2 = np.concatenate(([0], np.diff(v)))
-        self.logger.debug(f"xvu shape: {xvu.shape}")
-        self.logger.debug(f"Y1 shape: {Y1.shape}")
-        self.logger.debug(f"Y2 shape: {Y2.shape}")
-        data = {
-            "name": self.name,
-            "frequency": self.frequency,
-            "X1_xvu": xvu,
-            "Y1": Y1,
-            "Y2": Y2,
-            "timestamp": t,
-        }
+        # stack inputs
+        if self.num_inputs == 3:
+            xvu = np.stack([x, v, u], axis=1)
+            self.logger.debug(f"xvu shape: {xvu.shape}")
+            self.logger.debug(f"Y1 shape: {Y1.shape}")
+            self.logger.debug(f"Y2 shape: {Y2.shape}")
+            data = {
+                "name": self.name,
+                "frequency": self.frequency,
+                "X1_xvu": xvu,
+                "Y1": Y1,
+                "Y2": Y2,
+                "timestamp": t,
+            }
+        elif self.num_inputs == 2:
+            xu = np.stack([x, u], axis=1)
+            self.logger.debug(f"xvu shape: {xu.shape}")
+            self.logger.debug(f"Y1 shape: {Y1.shape}")
+            self.logger.debug(f"Y2 shape: {Y2.shape}")
+            data = {
+                "name": self.name,
+                "frequency": self.frequency,
+                "X1_xu": xu,
+                "Y1": Y1,
+                "timestamp": t,
+            }
         return data
 
 

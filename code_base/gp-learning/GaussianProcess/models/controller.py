@@ -8,7 +8,6 @@ torch.set_default_dtype(torch.float32)
 class Controller:
     def __init__(self, **kwargs):
         super(Controller, self).__init__()
-        self.verbose = kwargs["verbose"]
         logger.debug("===== Configuring controller with parameters =====")
         for key, value in kwargs.items():
             setattr(self, key, value)

@@ -15,15 +15,10 @@ class GPModel:
     def __init__(self, **kwargs):
         super(GPModel, self).__init__()
         # self.data_fields = kwargs["GPModel_datafields"]
-        self.verbose = kwargs["verbose"]
-        # verbose level: Basic/Critical
-        if self.verbose >= 3:
-            logger.info("===== Configuring GP model with parameters =====")
+        logger.debug("===== Configuring GP model with parameters =====")
         for key, value in kwargs.items():
             setattr(self, key, value)
-            # verbose level: Trace Full
-            if self.verbose >= 3:
-                logger.info(f"attribute {key}: {value}")
+            logger.debug(f"attribute {key}: {value}")
         self.configs = kwargs
 
         # set device
@@ -45,19 +40,20 @@ class GPModel:
                 self.x_lb,
                 self.x_ub,
             ) = load_training_data(
-                data_path=path_train_data, output_torch=True, normalize=True
+                data_path=path_train_data,
+                output_torch=self.torch_output,
+                normalize=self.normalize_train,
             )
             # convert to GPU if required
             self.X_train = self.X_train.to(self.device, self.dtype)
             self.y_train = self.y_train.to(self.device, self.dtype)
             logger.debug(f"X train shape: {self.X_train.shape}")
             logger.debug(f"y train shape: {self.y_train.shape}")
-            if self.verbose > 0:
-                logger.info(
-                    "Loaded training dataset {} with {} datapoints".format(
-                        path_train_data, len(self.X_train)
-                    )
+            logger.info(
+                "Loaded training dataset {} with {} datapoints".format(
+                    path_train_data, len(self.X_train)
                 )
+            )
 
             self.likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(
                 num_tasks=2
@@ -80,13 +76,11 @@ class GPModel:
             self.likelihood = model_info["likelihood"].to(
                 device=self.device, dtype=self.dtype
             )
-            if self.verbose > 3:
-                logger.info(f"Model: {self.model}")
-                logger.info(f"Likelihood: {self.likelihood}")
+            logger.debug(f"Model: {self.model}")
+            logger.debug(f"Likelihood: {self.likelihood}")
 
     def train(self):
-        if self.verbose > 0:
-            logger.info("Training GP models on data...")
+        logger.info("Training GP models on data...")
         # ---- Optimize GP ----- #
         # Time the training process
         start_model_training = time.perf_counter()
@@ -115,21 +109,19 @@ class GPModel:
             # Calculate loss and backprop gradients
             loss = -mll(output, self.y_train)
             loss.backward()
-            if self.verbose > 0:
-                logger.info(
-                    "Iter {}/{} - Loss: {:.3f} noise: {:.3f}".format(
-                        i + 1, training_iter, loss, self.model.likelihood.noise.item()
-                    )
+            logger.info(
+                "Iter {}/{} - Loss: {:.3f} noise: {:.3f}".format(
+                    i + 1, training_iter, loss, self.model.likelihood.noise.item()
                 )
+            )
             optimizer.step()
         end_model_training = time.perf_counter()
         elapsed_model_training = end_model_training - start_model_training
-        if self.verbose > 0:
-            logger.info(
-                "GP Models trained in {:.3f}s, with {} data points".format(
-                    elapsed_model_training, len(self.X_train)
-                )
+        logger.info(
+            "GP Models trained in {:.3f}s, with {} data points".format(
+                elapsed_model_training, len(self.X_train)
             )
+        )
         # set models into evaluation (predictive posterior) mode
         self.model.eval()
         self.likelihood.eval()
@@ -145,8 +137,7 @@ class GPModel:
         self.X_test = self.X_test.to(self.device, self.dtype)
         self.y_test = self.y_test.to(self.device, self.dtype)
 
-        if self.verbose > 2:
-            print("Starting batch querying GP with test data")
+        logger.debug("Starting batch querying GP with test data")
         t1_GPQueryingBatch = time.perf_counter()
         X_test = self.X_test
         y_test = self.y_test
@@ -155,12 +146,11 @@ class GPModel:
         y_pred = self.predict(X_test)
         t2_GPQueryingBatch = time.perf_counter()
         elapsed_GPQueryingBatch = t2_GPQueryingBatch - t1_GPQueryingBatch
-        if self.verbose > 1:
-            logger.info(
-                "GP models queried in {:.3f} seconds, with {} data points".format(
-                    elapsed_GPQueryingBatch, len(X_test)
-                )
+        logger.info(
+            "GP models queried in {:.3f} seconds, with {} data points".format(
+                elapsed_GPQueryingBatch, len(X_test)
             )
+        )
         # calculate MSE
         y_actual = y_test.cpu().numpy()
 
@@ -184,9 +174,8 @@ class GPModel:
         """
         predict the output from input X* using GP model
         """
-        if self.verbose > 3:
-            # //TODO: try passing tensors around to see if it improves speed
-            logger.info("getting prediction(s) from GP Model:")
+        # //TODO: try passing tensors around to see if it improves speed
+        # logger.debug("getting prediction(s) from GP Model:")
         with gpytorch.settings.fast_pred_var():  # torch.no_grad(),
             observed_pred = self.likelihood(self.model(X))
         return observed_pred
@@ -196,15 +185,11 @@ class GPModel:
         # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
         self.dtype = torch.float32
         self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        if self.verbose > 0:
-            logger.info(
-                f"using GPU: {self.is_cuda} - using processor: *({self.device})"
-            )
+        logger.info(f"using GPU: {self.is_cuda} - using processor: *({self.device})")
 
     def set_device_cpu(self):
         self.is_cuda = False
         # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
         self.dtype = torch.float32
         self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        if self.verbose > 0:
-            logger.info(f"Forcing CPU... using processor: *({self.device})")
+        logger.info(f"Forcing CPU... using processor: *({self.device})")

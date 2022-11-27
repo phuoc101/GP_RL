@@ -13,7 +13,7 @@ def save_data(file, data):
         pickle.dump(data, f)
 
 
-def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=True):
+def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=False):
     """
     call this to load <training_data>.pkl that was saved in processing
     - normalizes data

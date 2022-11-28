@@ -136,7 +136,10 @@ class GPModel:
         """
         # Load test data
         self.X_test, self.y_test = load_test_data(
-            path_test_data, output_torch=True, normalize=True
+            num_inputs=self.num_tasks + 1,
+            data_path=path_test_data,
+            output_torch=True,
+            normalize=True,
         )
         self.X_test = self.X_test.to(self.device, self.dtype)
         self.y_test = self.y_test.to(self.device, self.dtype)
@@ -170,8 +173,11 @@ class GPModel:
         logger.debug(f"pred y mean shape: {y_pred_mean.shape}")
         logger.debug(f"pred y conf shape: {y_pred_conf.shape}")
         MSE_1 = calc_MSE(y_pred_mean[:, 0], y_actual[:, 0])
-        MSE_2 = calc_MSE(y_pred_mean[:, 1], y_actual[:, 1])
-        logger.info(f"MSE_1= {MSE_1:.2f}, MSE_2= {MSE_2:.4f}")
+        if (self.num_tasks == 2):
+            MSE_2 = calc_MSE(y_pred_mean[:, 1], y_actual[:, 1])
+            logger.info(f"MSE_1= {MSE_1:.2f}, MSE_2= {MSE_2:.4f}")
+        else:
+            logger.info(f"MSE_1= {MSE_1:.2f}")
         return y_pred_mean, y_pred_conf
 
     def predict(self, X):

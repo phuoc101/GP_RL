@@ -58,7 +58,7 @@ class PolicyOptimizer:
         else:
             logger.info("Forcing CPU as processor...")
             self.set_device_cpu()
-        # if self.RewType == 'exponential-single-target':
+        # if self.wType == 'exponential-single-target':
         #     self.get_reward = self.Rew_single_goal_pos
         self.get_reward = self.rew_exponential_PILCO
         if not Path("./results/reward_fun.png").exists():
@@ -116,7 +116,7 @@ class PolicyOptimizer:
         for tl in range(trials):
             # optimization algorithm:  self.configs['optimopts']['optimizer']
             # self.controller.randomize()
-            logger.info(f"Starting optimization trial {tl}...")
+            logger.info(f"Starting optimization trial {tl+1}/{trials}...")
             self.randTensor = self.tensor(
                 torch.randn((self.n_trajectories, self.state_dim, self.horizon))
             )
@@ -328,7 +328,7 @@ class PolicyOptimizer:
             Vgd_2Dnormalized,
         ) = self.get_grid_stacked_inputs(n_x, n_x)
         # actions = self.linearModel(stacked_inputs) #debugging
-        actions = self.gp_model.predict(stacked_inputs)
+        actions = model.predict(stacked_inputs)
         actions = actions.mean.reshape(n_x, n_x).cpu().detach().numpy()
         f, ax = plt.subplots(1, 1, figsize=(4, 3))
         ax.set_xlabel("X")
@@ -340,8 +340,7 @@ class PolicyOptimizer:
         )
         f.colorbar(pc)
         plt.savefig(f"{self.optimizer_log_dir}policy_plot_{iter}.png")
-        if self.verbose > 0:
-            print("policy plot saved...")
+        logger.info("policy plot saved...")
 
     def get_grid_stacked_inputs(self, n_x=100, n_y=20):
         Xgd_2Dnormalized, Vgd_2Dnormalized = make_2D_normalized_grid(

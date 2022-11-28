@@ -22,14 +22,14 @@ def main(opts):
     controller_config = {
         **controller_config,
         "force_cpu": opts.force_cpu,
-        "state_dim": opts.state_dim,
+        "state_dim": opts.num_states,
         "control_dim": opts.control_dim,
     }
     # set optimizer config
     config = configs.get_optimizer_config()
     config = {
         **config,
-        "state_dim": opts.state_dim,
+        "state_dim": opts.num_states,
         "verbose": 1,
         "init_state": np.array(opts.init_state),
         "target_state": np.array(opts.target_state),
@@ -63,7 +63,6 @@ if __name__ == "__main__":
     parser.add_argument("--trials", type=int, default=5, help="Number of trials") # noqa
     parser.add_argument("--gp-training-iter", type=int, default=500, help="Max number of iterations to train GP model") # noqa
     parser.add_argument("--trial-max-iter", type=int, default=20, help="Max number of iterations per trials") # noqa
-    parser.add_argument("--state-dim", type=int, default=1, help="Observation space dimension") # noqa
     parser.add_argument("--control-dim", type=int, default=1, help="Action space dimension") # noqa
     parser.add_argument("--gpmodel", default="./results/GPmodel.pkl", help="Pretrained GP model") # noqa
     parser.add_argument("--optimizer", default="Adam", help="Optimizer type") # noqa

@@ -45,7 +45,7 @@ def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=Fal
     x_lb = np.min(X, 0)
     x_ub = np.max(X, 0)
     # multiply inputs U
-    X[:, -1] = X[:, -1] * 5
+    # X[:, -1] = X[:, -1] * 5
 
     if output_torch:
         X = torch.Tensor(X).contiguous()
@@ -71,7 +71,7 @@ def load_test_data(data_path, num_inputs=3, output_torch=True, normalize=True):
         y = np.vstack(test_data["Y1"])
 
     # multiply inputs U
-    X[:, -1] = X[:, -1] * 5
+    # X[:, -1] = X[:, -1] * 5
 
     if output_torch:
         X = torch.Tensor(X).contiguous()

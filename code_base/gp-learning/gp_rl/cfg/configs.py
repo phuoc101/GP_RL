@@ -59,4 +59,5 @@ def get_optimizer_config():
         "dt": 0.1,  # in seconds, so frequency is 10Hz
         "W_R": np.diag([0.5, 0.2]),
         "normalize_target": True,
+        "learning_rate": 0.01,
     }

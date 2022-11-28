@@ -1,3 +1,4 @@
+from loguru import logger
 import pickle
 import numpy as np
 import torch
@@ -27,10 +28,10 @@ def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=Fal
     if num_inputs == 3:
         X = training_data["X1_xvu"]
         y = np.vstack((training_data["Y1"], training_data["Y2"])).T
-        print(f"Shape X: {X.shape}, Shape y: {y.shape}")
     elif num_inputs == 2:
         X = training_data["X1_xu"]
         y = np.vstack(training_data["Y1"])
+    logger.debug(f"Shape X_train: {X.shape}, Shape y_train: {y.shape}")
     # normalize X, Y
     mean_states, std_states = get_mean_std(X)
     # mean_states = np.zeros(shape=std_states.shape)  # for simplicity
@@ -70,6 +71,7 @@ def load_test_data(data_path, num_inputs=3, output_torch=True, normalize=True):
         X = test_data["X1_xu"]
         y = np.vstack(test_data["Y1"])
 
+    logger.debug(f"Shape X_test: {X.shape}, Shape y_test: {y.shape}")
     # multiply inputs U
     # X[:, -1] = X[:, -1] * 5
 

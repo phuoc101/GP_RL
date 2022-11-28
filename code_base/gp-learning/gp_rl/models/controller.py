@@ -61,9 +61,7 @@ class Controller:
         # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
         self.dtype = torch.float32
         self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        logger.info(
-            f"using GPU: {self.is_cuda} - using processor: *({self.device})"
-            )
+        logger.info(f"using GPU: {self.is_cuda} - using processor: *({self.device})")
 
     def set_device_cpu(self):
         self.is_cuda = False

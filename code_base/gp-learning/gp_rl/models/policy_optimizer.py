@@ -85,7 +85,7 @@ class PolicyOptimizer:
                 [
                     {"params": self.controller.parameters()},
                 ],
-                lr=0.05,
+                lr=self.learning_rate,
                 alpha=0.99,
                 eps=1e-08,
                 weight_decay=0,
@@ -97,10 +97,19 @@ class PolicyOptimizer:
                 [
                     {"params": self.controller.parameters()},
                 ],
-                lr=0.05,
+                lr=self.learning_rate,
+            )
+        elif optimizing_method == "NAdam":
+            self.optimizer = torch.optim.NAdam(
+                [
+                    {"params": self.controller.parameters()},
+                ],
+                lr=self.learning_rate,
             )
         elif optimizing_method == "SGD":
-            self.optimizer = torch.optim.SGD(self.controller.parameters(), lr=0.05)
+            self.optimizer = torch.optim.SGD(
+                self.controller.parameters(), lr=self.learning_rate
+            )
         else:
             raise NotImplementedError
 
@@ -133,7 +142,7 @@ class PolicyOptimizer:
                 self.optimizer.zero_grad()
                 # reward = self.opt_predict()
                 # loss = -reward
-                loss, mean_error = self.optstep_loss()
+                loss, mean_error = self.opt_step_loss()
                 loss = -loss
                 loss.backward()
                 # plot_grad_flow_v2(self.controller.parameters())
@@ -151,6 +160,7 @@ class PolicyOptimizer:
                 optimInfo["loss"].append(loss.item())
                 optimInfo["time"].append(t2)
 
+            self.plot_policy(iter=tl + 1)
             logger.info(
                 "Controller's optimization: done in %.1f seconds with reward=%.3f."
                 % (t2, loss.item())
@@ -168,7 +178,7 @@ class PolicyOptimizer:
         save_data(f"{self.optimizer_log_dir}_all.pkl", all_optim_data)
 
     # calculate predictions+reward without having everything in one big tensor
-    def optstep_loss(self):
+    def opt_step_loss(self):
         n_trajectories = self.n_trajectories  # number of (parallel) trajectories
         # initial state+u and concat
         state = torch.cat(n_trajectories * [self.obs_torch[None, :]], dim=0)
@@ -178,7 +188,7 @@ class PolicyOptimizer:
         t1 = time.perf_counter()
         for k in range(self.horizon - 1):
             # get u:  state -> controller -> u
-            u = self.controller.forward(state)[:, 0]
+            u = self.controller(state)[:, 0]
             # predict next state: s_{t+1} = GP(s,u)
             GPinput = torch.cat((state, u[:, None]), dim=1)
             predictions = self.gp_model.predict(GPinput)
@@ -193,6 +203,9 @@ class PolicyOptimizer:
             rewards = self.rew_exp_torch_batch_all(next_state[:, 0])
             rew = rew + rewards
             state = next_state
+            # print(f"{k} time")
+            # print(torch.cat(state, u[:, None], dim=1))
+            # input()
         mean_error = torch.mean(state - self.target_state[0])
         t_elapsed = time.perf_counter() - t1
         logger.debug(f"Predictions completed... elapsed time: {t_elapsed:.2f}")
@@ -314,32 +327,34 @@ class PolicyOptimizer:
         )
         f.colorbar(pc)
         os.makedirs("./results/", exist_ok=True)
-        plt.savefig(f"{file_path}")
+        plt.savefig(f"{file_path}", dpi=f.dpi)
         logger.info("reward plot saved to {}".format(file_path))
 
-    def plot_policy(self, model=None, iter=1):  # this is a torch.nn policy
-        if model is None:
-            model = self.controller
+    def plot_policy(self, controller=None, iter=1):  # this is a torch.nn policy
+        if controller is None:
+            controller = self.controller
         n_x = 100
         # calc normalized 2Dmap
-        (
-            stacked_inputs,
-            Xgd_2Dnormalized,
-            Vgd_2Dnormalized,
-        ) = self.get_grid_stacked_inputs(n_x, n_x)
+        # (
+        #     stacked_inputs,
+        #     Xgd_2Dnormalized,
+        #     Vgd_2Dnormalized,
+        # ) = self.get_grid_stacked_inputs(n_x, n_x)
+        inputs = np.linspace(self.x_lb[0], self.x_ub[0], n_x)
         # actions = self.linearModel(stacked_inputs) #debugging
-        actions = model.predict(stacked_inputs)
-        actions = actions.mean.reshape(n_x, n_x).cpu().detach().numpy()
+        actions = controller.forward(self.tensor(inputs).reshape(-1, 1))
+        # actions = actions.reshape(n_x, n_x).cpu().detach().numpy()
         f, ax = plt.subplots(1, 1, figsize=(4, 3))
-        ax.set_xlabel("X")
-        ax.set_ylabel("V")
-        ax.set_title("Policy Plot")
-        # ax.contour(xg,vg, rew)
-        pc = ax.pcolormesh(
-            Xgd_2Dnormalized, Vgd_2Dnormalized, actions, cmap=matplotlib.cm.jet
-        )
-        f.colorbar(pc)
-        plt.savefig(f"{self.optimizer_log_dir}policy_plot_{iter}.png")
+        ax.set_xlabel("x")
+        ax.set_ylabel("u")
+        ax.set_title(f"Policy Plot iter {iter}")
+        ax.plot(inputs, actions.cpu().detach().numpy())
+        # # ax.contour(xg,vg, rew)
+        # pc = ax.pcolormesh(
+        #     Xgd_2Dnormalized, Vgd_2Dnormalized, actions, cmap=matplotlib.cm.jet
+        # )
+        # f.colorbar(pc)
+        plt.savefig(f"{self.optimizer_log_dir}policy_plot_{iter}.png", dpi=100)
         logger.info("policy plot saved...")
 
     def get_grid_stacked_inputs(self, n_x=100, n_y=20):

@@ -22,12 +22,12 @@ def main(opts):
         "gp_training_iter": opts.gp_train_iter,
         "force_train": opts.force_train,
     }
-    model = GPModel(**config)
-    model.initialize_model(
+    gpmodel = GPModel(**config)
+    gpmodel.initialize_model(
         path_model=opts.gpmodel,
         path_train_data=opts.train,
     )
-    pred_mean, pred_conf = model.eval(path_test_data=opts.test)
+    pred_mean, pred_conf = gpmodel.eval(path_test_data=opts.test)
     pred_mean *= opts.sampling_time_ratio
     # X_test is (pos, vel, u)
     X_test, y_test = load_test_data(num_inputs=opts.num_states+1, data_path=opts.test)

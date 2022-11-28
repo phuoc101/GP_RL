@@ -173,7 +173,7 @@ class GPModel:
         logger.debug(f"pred y mean shape: {y_pred_mean.shape}")
         logger.debug(f"pred y conf shape: {y_pred_conf.shape}")
         MSE_1 = calc_MSE(y_pred_mean[:, 0], y_actual[:, 0])
-        if (self.num_tasks == 2):
+        if self.num_tasks == 2:
             MSE_2 = calc_MSE(y_pred_mean[:, 1], y_actual[:, 1])
             logger.info(f"MSE_1= {MSE_1:.2f}, MSE_2= {MSE_2:.4f}")
         else:
@@ -188,6 +188,10 @@ class GPModel:
         # logger.debug("getting prediction(s) from GP Model:")
         with gpytorch.settings.fast_pred_var():  # torch.no_grad(),
             observed_pred = self.likelihood(self.model(X))
+
+        for i, x in enumerate(X):
+            if x[-1] > -0.01 and x[-1] < 0.01:
+                observed_pred.loc[i] = 0
         return observed_pred
 
     def set_device(self):

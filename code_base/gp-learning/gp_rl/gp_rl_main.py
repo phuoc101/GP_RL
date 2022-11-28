@@ -43,12 +43,13 @@ def main(opts):
         },
         "force_cpu": opts.force_cpu,
         "normalize_target": opts.normalize,
+        "learning_rate": opts.learning_rate,
+        # load gp and controller configs
         "gp_config": gp_config,
         "controller_config": controller_config,
     }
     policy_optimizer = PolicyOptimizer(**config)
     policy_optimizer.optimize_policy()
-    policy_optimizer.plot_policy()
 
 
 if __name__ == "__main__":
@@ -56,13 +57,14 @@ if __name__ == "__main__":
     # fmt: off
     parser.add_argument("--train-data", default="../data/boom_xu_trial6_10hz.pkl", help="Path to training dataset")  # noqa
     parser.add_argument("--test-data", default="../data/boom_xu_trial3_10hz.pkl", help="Path to test dataset")  # noqa
-    parser.add_argument("--num-states", type=int, default=2, help="Number of tasks: 2 for xv and 1 for x") # noqa
+    parser.add_argument("--num-states", type=int, default=1, help="Number of tasks: 2 for xv and 1 for x") # noqa
     parser.add_argument("--force_cpu", action="store_true", help="Force using CPU")  # noqa
     parser.add_argument("--normalize", action="store_true", help="Normalize training data") # noqa
     parser.add_argument("--force-train-gp", action="store_true", help="Force training GP model") # noqa
     parser.add_argument("--trials", type=int, default=5, help="Number of trials") # noqa
     parser.add_argument("--gp-training-iter", type=int, default=500, help="Max number of iterations to train GP model") # noqa
     parser.add_argument("--trial-max-iter", type=int, default=20, help="Max number of iterations per trials") # noqa
+    parser.add_argument("--learning-rate", type=float, default=0.01, help="Controller's training learning rate") # noqa
     parser.add_argument("--control-dim", type=int, default=1, help="Action space dimension") # noqa
     parser.add_argument("--gpmodel", default="./results/GPmodel.pkl", help="Pretrained GP model") # noqa
     parser.add_argument("--optimizer", default="Adam", help="Optimizer type") # noqa
@@ -73,4 +75,5 @@ if __name__ == "__main__":
     opts = parser.parse_args()
     logger.remove()
     logger.add(sys.stderr, level=opts.verbose)
+    print(opts.learning_rate)
     main(opts)

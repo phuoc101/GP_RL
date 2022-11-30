@@ -44,12 +44,18 @@ def main(opts):
         "force_cpu": opts.force_cpu,
         "normalize_target": opts.normalize,
         "learning_rate": opts.learning_rate,
+        "is_deterministic_init": not opts.nondet_init,
+        "initial_distr": opts.initial_distr,
+        "is_deterministic_goal": not opts.nondet_goal,
+        "goal_distr": opts.goal_distr,
         # load gp and controller configs
         "gp_config": gp_config,
         "controller_config": controller_config,
     }
+    print(f"IS_DETERMINISTIC_GOAL: {opts.nondet_goal}")
     policy_optimizer = PolicyOptimizer(**config)
     policy_optimizer.optimize_policy()
+    policy_optimizer.MC_oneSweep()
 
 
 if __name__ == "__main__":
@@ -66,10 +72,14 @@ if __name__ == "__main__":
     parser.add_argument("--trial-max-iter", type=int, default=20, help="Max number of iterations per trials") # noqa
     parser.add_argument("--learning-rate", type=float, default=0.01, help="Controller's training learning rate") # noqa
     parser.add_argument("--control-dim", type=int, default=1, help="Action space dimension") # noqa
-    parser.add_argument("--gpmodel", default="./results/GPmodel.pkl", help="Pretrained GP model") # noqa
+    parser.add_argument("--gpmodel", default="./results/gp/GPmodel.pkl", help="Pretrained GP model") # noqa
     parser.add_argument("--optimizer", default="Adam", help="Optimizer type") # noqa
     parser.add_argument("--init-state", default=[-1], nargs="+", type=int, help="Initial state") # noqa
+    parser.add_argument("--nondet-init", action="store_true", help="Activate non-deterministic initialization for controller training") # noqa
+    parser.add_argument("--initial-distr", default="full", help="distribution of initial position") # noqa
     parser.add_argument("--target-state", default=[0], nargs="+", type=int, help="Initial state") # noqa
+    parser.add_argument("--nondet-goal", action="store_true", help="Activate non-deterministic target for controller training") # noqa
+    parser.add_argument("--goal-distr", default="full", help="distribution of generated nondeterministic goal") # noqa
     parser.add_argument("--verbose", default="DEBUG", help="logging verbosity (DEBUG, INFO, WARNING, ERROR)") # noqa
     # fmt: on
     opts = parser.parse_args()

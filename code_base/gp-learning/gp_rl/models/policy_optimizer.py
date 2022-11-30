@@ -5,13 +5,12 @@ from loguru import logger
 import torch
 from pathlib import Path
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
 
 from models.GPModel import GPModel
 from models.controller import Controller
 from utils.data_loading import save_data, load_training_data, load_test_data
-from utils.grid import make_2D_normalized_grid
+from utils.plot import plot_policy, plot_reward, plot_MC
+from utils.miscellaneous import get_tensor, set_device, set_device_cpu
 
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)
@@ -26,10 +25,10 @@ class PolicyOptimizer:
             logger.debug(f"attribute {key}: {value}")
         # set device
         if not self.force_cpu:
-            self.set_device()
+            set_device(self)
         else:
             logger.info("Forcing CPU as processor...")
-            self.set_device_cpu()
+            set_device_cpu(self)
         self.gp_model = self.get_gp_model()
         self.horizon = round(self.Tf / self.dt)
         # load train data
@@ -52,18 +51,16 @@ class PolicyOptimizer:
         )
         # angle (goal) generation offset from bounds, normalized
         self.angle_goal_offset = 5 * np.pi / 180 / self.std_states[0]
-        # set device
-        if not self.force_cpu:
-            self.set_device()
-        else:
-            logger.info("Forcing CPU as processor...")
-            self.set_device_cpu()
-        # if self.wType == 'exponential-single-target':
-        #     self.get_reward = self.Rew_single_goal_pos
         self.get_reward = self.rew_exponential_PILCO
-        if not Path("./results/reward_fun.png").exists():
-            self.plot_reward(file_path="./results/reward_fun.png")
-        self.reset()
+        if not Path("./results/reward_fun/reward_fun.png").exists():
+            plot_reward(
+                x_lb=self.x_lb,
+                x_ub=self.x_ub,
+                file_path="./results/reward_fun/reward_fun.png",
+                get_reward=self.get_reward,
+            )
+        self.controller = self.get_controller()
+        # self.reset()
 
     def get_gp_model(self):
         model = GPModel(**self.gp_config)
@@ -118,6 +115,8 @@ class PolicyOptimizer:
         """
         Optimize controller's parameter's
         """
+        controller_log_dir = os.path.join(self.optimizer_log_dir, "controller")
+        os.makedirs(controller_log_dir, exist_ok=True)
         maxiter = self.optimizer_opts["max_iter"]
         trials = self.optimizer_opts["trials"]
         all_optim_data = {"all_optimizer_data": []}
@@ -126,11 +125,14 @@ class PolicyOptimizer:
             # optimization algorithm:  self.configs['optimopts']['optimizer']
             # self.controller.randomize()
             logger.info(f"Starting optimization trial {tl+1}/{trials}...")
-            self.randTensor = self.tensor(
-                torch.randn((self.n_trajectories, self.state_dim, self.horizon))
+            self.randTensor = get_tensor(
+                data=torch.randn((self.n_trajectories, self.state_dim, self.horizon)),
+                device=self.device,
+                dtype=self.dtype,
             )
+            self.reset()
             # Initialize a new controller
-            self.controller = self.get_controller()
+            # self.controller = self.get_controller()
             controller_initial = deepcopy(self.controller)
 
             self.set_optimizer()
@@ -153,14 +155,20 @@ class PolicyOptimizer:
                         i + 1, maxiter, loss.item()
                     )
                 )
-                logger.debug("Mean error {:.5f}".format(mean_error))
+                logger.info("Mean error {:.5f}".format(mean_error))
                 self.optimizer.step()
                 # keep track of runtime and loss
                 t2 = time.perf_counter() - t_start
                 optimInfo["loss"].append(loss.item())
                 optimInfo["time"].append(t2)
 
-            self.plot_policy(iter=tl + 1)
+            plot_policy(
+                controller=self.controller,
+                x_lb=self.x_lb,
+                x_ub=self.x_ub,
+                policy_log_dir=os.path.join(self.optimizer_log_dir, "policies"),
+                iter=tl + 1,
+            )
             logger.info(
                 "Controller's optimization: done in %.1f seconds with reward=%.3f."
                 % (t2, loss.item())
@@ -172,10 +180,12 @@ class PolicyOptimizer:
                 "mean_states": self.mean_states,
                 "std_states": self.std_states,
             }
-            save_data(f"{self.optimizer_log_dir}_trial_{tl}.pkl", trial_save_info)
+            save_data(
+                os.path.join(controller_log_dir, f"_trial_{tl}.pkl"), trial_save_info
+            )
             # collect trial data into one
             all_optim_data["all_optimizer_data"].append(trial_save_info)
-        save_data(f"{self.optimizer_log_dir}_all.pkl", all_optim_data)
+        save_data(os.path.join(controller_log_dir, "_all.pkl"), all_optim_data)
 
     # calculate predictions+reward without having everything in one big tensor
     def opt_step_loss(self):
@@ -186,9 +196,12 @@ class PolicyOptimizer:
         rew = self.rew_exp_torch_batch_all(state[:, 0])
         logger.debug("starting trajectory realization...")
         t1 = time.perf_counter()
+        target_tensor = get_tensor(
+            data=self.target_state, device=self.device, dtype=self.dtype
+        )
         for k in range(self.horizon - 1):
             # get u:  state -> controller -> u
-            u = self.controller(state)[:, 0]
+            u = self.controller(state - target_tensor)[:, 0]
             # predict next state: s_{t+1} = GP(s,u)
             GPinput = torch.cat((state, u[:, None]), dim=1)
             predictions = self.gp_model.predict(GPinput)
@@ -203,68 +216,79 @@ class PolicyOptimizer:
             rewards = self.rew_exp_torch_batch_all(next_state[:, 0])
             rew = rew + rewards
             state = next_state
-            # print(f"{k} time")
-            # print(torch.cat(state, u[:, None], dim=1))
             # input()
         mean_error = torch.mean(state - self.target_state[0])
         t_elapsed = time.perf_counter() - t1
-        logger.debug(f"Predictions completed... elapsed time: {t_elapsed:.2f}")
+        logger.debug(f"Predictions completed... elapsed time: {t_elapsed:.2f}s")
         return rew, mean_error
 
     def reset(self):
-        self.k_step = 0  # current simulation step number
+        # self.k_step = 0  # current simulation step number
         self.done = False
         self.time_reached = 1e4  # checkpoint for payload within acceptable limits
 
         # generate init/goal states
         initial_state = self.generate_init_state()
         self.target_state = self.generate_goal()
-        if self.normalize_target:
-            self.target_state = np.divide(
-                self.target_state - self.mean_states, self.std_states
-            )
+        # if self.normalize_target:
+        #     self.target_state = np.divide(
+        #         self.target_state - self.mean_states, self.std_states
+        #     )
 
         self.state = torch.zeros(
             (self.horizon, self.state_dim), device=self.device, dtype=self.dtype
         )
-        self.state[self.k_step] = initial_state
+        self.state = initial_state
         self.reward = torch.zeros((self.horizon), device=self.device, dtype=self.dtype)
 
         self.obs_torch = initial_state
-        logger.debug("reset() complete: observation:")
-        logger.debug(self.obs_torch)
-        logger.debug(f"observation type: {type(self.obs_torch)}")
+        logger.info(
+            "Reset complete: observation: {}, goal: {}".format(
+                self.obs_torch.item(), self.target_state
+            )
+        )
+        # logger.info(f"observation type: {type(self.obs_torch)}")
         return self.obs_torch
 
     def generate_init_state(self):
         # in deterministic, default values are already in config
         if not self.is_deterministic_init:
             # initial state distribution
-            if self.initial_dist == "full":  # non-colliding with obstacle
-                init_state = np.random.uniform(self.x_lb[:2], self.x_ub[:2])
+            if self.initial_distr == "full":  # non-colliding with obstacle
+                init_state = np.random.uniform(
+                    self.x_lb[0 : self.state_dim],
+                    self.x_ub[0 : self.state_dim],
+                    size=self.state_dim,
+                )
 
-            elif self.initial_dist == "constrained":
+            elif self.initial_distr == "constrained":
                 init_state = np.random.uniform(
                     self.x_lb + self.angle_goal_offset,
                     self.x_ub - self.angle_goal_offset,
                 )
 
-            elif self.initial_dist == "grid":
+            elif self.initial_distr == "grid":
                 return (
                     self.Rinit,
                     self.Sinit,
                 )  # pass and let the MC plotter handle initial states
             else:
                 raise NotImplementedError()
-            return self.tensor(init_state)
+            return get_tensor(data=init_state, device=self.device, dtype=self.dtype)
         else:
-            return self.tensor(self.init_state)
+            return get_tensor(
+                data=self.init_state, device=self.device, dtype=self.dtype
+            )
 
     def generate_goal(self):
         # in deterministic, default values are already in config
         if not self.is_deterministic_goal:
             if self.goal_distr == "full":
-                goal_state = np.random.uniform(self.x_lb, self.x_ub)
+                goal_state = np.random.uniform(
+                    self.x_lb[0 : self.state_dim],
+                    self.x_ub[0 : self.state_dim],
+                    size=self.state_dim,
+                )
 
             elif self.goal_distr == "constrained-safe":  # safe means far from bounds
                 goal_state = np.random.uniform(
@@ -290,79 +314,92 @@ class PolicyOptimizer:
         reward = np.exp(-np.divide((state_error) ** 2, sigma2))
         return reward
 
-    def tensor(self, data):
-        if isinstance(data, torch.Tensor):
-            return data.to(self.device)
-        elif isinstance(data, np.ndarray):
-            return torch.tensor(data, dtype=self.dtype, device=self.device)
-
-    def set_device(self):
-        self.is_cuda = torch.cuda.is_available()
-        # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
-        self.dtype = torch.float32
-        self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        logger.info(f"using GPU: {self.is_cuda} - using processor: *({self.device})")
-
-    def set_device_cpu(self):
-        self.is_cuda = False
-        # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
-        self.dtype = torch.float32
-        self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        logger.info(f"Forcing CPU... using processor: *({self.device})")
-
-    def plot_reward(self, file_path):
-        # calc normalized 2Dmap
-        Xgd_2Dnormalized, Vgd_2Dnormalized = make_2D_normalized_grid(
-            self.x_lb, self.x_ub, n_x=30
+    def calc_realizations(self, gp_model, controller):
+        n_trajectories = self.n_trajectories  # number of (parallel) trajectories
+        # initialize big tensor, keeping track of all variables
+        M = get_tensor(
+            torch.zeros(
+                (n_trajectories, self.state_dim + self.control_dim, self.horizon)
+            ),
+            device=self.device,
+            dtype=self.dtype,
         )
-        rewards = self.get_reward(Xgd_2Dnormalized.ravel())
-        rewards = rewards.reshape(30, 30)
-        f, ax = plt.subplots(1, 1, figsize=(4, 3))
-        ax.set_xlabel("X")
-        ax.set_ylabel("V")
-        ax.set_title("Reward function")
-        # ax.contour(xg,vg, rew)
-        pc = ax.pcolormesh(
-            Xgd_2Dnormalized, Vgd_2Dnormalized, rewards, cmap=matplotlib.cm.jet
+        # initial state+u and concat
+        state = torch.cat(n_trajectories * [self.obs_torch[None, :]], dim=0)
+        self.randTensor = get_tensor(
+            torch.randn((self.n_trajectories, self.state_dim, self.horizon)),
+            device=self.device,
+            dtype=self.dtype,
         )
-        f.colorbar(pc)
-        os.makedirs("./results/", exist_ok=True)
-        plt.savefig(f"{file_path}", dpi=f.dpi)
-        logger.info("reward plot saved to {}".format(file_path))
+        # assign data to M, memory := sys.getsizeof(M.storage())
+        M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
+        logger.info("starting trajectory realization...")
+        t1 = time.perf_counter()
+        for k in range(self.horizon - 1):
+            with torch.no_grad():
+                # get u:  state -> controller -> u
+                M[:, -1, k] = controller.forward(M[:, :-1, k])[:, 0]
+                # predict next state: s_{t+1} = GP(s,u)
+                predictions = gp_model.predict(M[:, :, k])
+            randtensor = (
+                predictions.mean + predictions.stddev * self.randTensor[:, :, k]
+            )
+            # predict next state
+            M[:, :-1, k + 1] = M[:, :-1, k] + randtensor
 
-    def plot_policy(self, controller=None, iter=1):  # this is a torch.nn policy
+        t_elapsed = time.perf_counter() - t1
+        logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
+        # logger.debug(f"size of randomTensor is {randtensor.shape}")
+        return M
+
+    def calc_realization_mean(
+        self, gp_model, controller
+    ):  # mean of GP predictions, no sampling
+        n_trajectories = 1  # number of (parallel) trajectories
+        # initialize big tensor, keeping track of all variables
+        M = get_tensor(
+            data=torch.zeros(
+                (n_trajectories, self.state_dim + self.control_dim, self.horizon)
+            ),
+            device=self.device,
+            dtype=self.dtype,
+        )
+        # initial state+u and concat
+        state = torch.cat(n_trajectories * [self.obs_torch[None, :]], dim=0)
+
+        # assign data to M, memory := sys.getsizeof(M.storage())
+        M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
+        logger.info("starting trajectory realization...")
+        t1 = time.perf_counter()
+        for k in range(self.horizon - 1):
+            # get u:  state -> controller -> u
+            with torch.no_grad():
+                M[:, -1, k] = controller(M[:, :-1, k])[:, 0]
+                # predict next state: s_{t+1} = GP(s,u)
+                predictions = gp_model.predict(M[:, :, k])
+            px = predictions.mean
+            # predict next state
+            M[:, :-1, k + 1] = M[:, :-1, k] + px
+        t_elapsed = time.perf_counter() - t1
+        logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
+        return M
+
+    def MC_oneSweep(self, controller=None, gp_model=None):
+        if gp_model is None:
+            gp_model = self.gp_model
         if controller is None:
             controller = self.controller
-        n_x = 100
-        # calc normalized 2Dmap
-        # (
-        #     stacked_inputs,
-        #     Xgd_2Dnormalized,
-        #     Vgd_2Dnormalized,
-        # ) = self.get_grid_stacked_inputs(n_x, n_x)
-        inputs = np.linspace(self.x_lb[0], self.x_ub[0], n_x)
-        # actions = self.linearModel(stacked_inputs) #debugging
-        actions = controller.forward(self.tensor(inputs).reshape(-1, 1))
-        # actions = actions.reshape(n_x, n_x).cpu().detach().numpy()
-        f, ax = plt.subplots(1, 1, figsize=(4, 3))
-        ax.set_xlabel("x")
-        ax.set_ylabel("u")
-        ax.set_title(f"Policy Plot iter {iter}")
-        ax.plot(inputs, actions.cpu().detach().numpy())
-        # # ax.contour(xg,vg, rew)
-        # pc = ax.pcolormesh(
-        #     Xgd_2Dnormalized, Vgd_2Dnormalized, actions, cmap=matplotlib.cm.jet
-        # )
-        # f.colorbar(pc)
-        plt.savefig(f"{self.optimizer_log_dir}policy_plot_{iter}.png", dpi=100)
-        logger.info("policy plot saved...")
-
-    def get_grid_stacked_inputs(self, n_x=100, n_y=20):
-        Xgd_2Dnormalized, Vgd_2Dnormalized = make_2D_normalized_grid(
-            self.x_lb, self.x_ub, n_x=n_x, n_y=n_y
+        M_mean = self.calc_realization_mean(gp_model, controller).cpu().detach().numpy()
+        M_trajectories = (
+            self.calc_realizations(gp_model, controller).cpu().detach().numpy()
         )
-        stacked_inputs = np.stack(
-            (Xgd_2Dnormalized.ravel(), Vgd_2Dnormalized.ravel())
-        ).T
-        stacked_inputs = self.tensor(stacked_inputs)
-        return stacked_inputs, Xgd_2Dnormalized, Vgd_2Dnormalized
+        plot_MC(
+            self.Tf,
+            self.dt,
+            self.target_state,
+            self.x_lb,
+            self.x_ub,
+            M_mean,
+            M_trajectories,
+            save_dir=os.path.join(self.optimizer_log_dir, "MC_sim"),
+        )

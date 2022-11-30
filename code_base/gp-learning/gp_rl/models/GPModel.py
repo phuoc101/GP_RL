@@ -6,6 +6,7 @@ import torch
 from models.BatchIndependentMultitaskGPModel import BatchIndependentMultitaskGPModel
 from loguru import logger
 from utils.data_loading import load_training_data, load_test_data, load_data, save_data
+from utils.miscellaneous import set_device_cpu, set_device
 
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)
@@ -23,10 +24,10 @@ class GPModel:
 
         # set device
         if not self.force_cpu:
-            self.set_device()
+            set_device(self)
         else:
             logger.info("Forcing CPU as processor...")
-            self.set_device_cpu()
+            set_device_cpu(self)
 
     def initialize_model(self, path_train_data, path_model=""):
         if not os.path.isfile(path_model) or self.force_train:
@@ -188,22 +189,4 @@ class GPModel:
         # logger.debug("getting prediction(s) from GP Model:")
         with gpytorch.settings.fast_pred_var():  # torch.no_grad(),
             observed_pred = self.likelihood(self.model(X))
-
-        for i, x in enumerate(X):
-            if x[-1] > -0.01 and x[-1] < 0.01:
-                observed_pred.loc[i] = 0
         return observed_pred
-
-    def set_device(self):
-        self.is_cuda = torch.cuda.is_available()
-        # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
-        self.dtype = torch.float32
-        self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        logger.info(f"using GPU: {self.is_cuda} - using processor: *({self.device})")
-
-    def set_device_cpu(self):
-        self.is_cuda = False
-        # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
-        self.dtype = torch.float32
-        self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        logger.info(f"Forcing CPU... using processor: *({self.device})")

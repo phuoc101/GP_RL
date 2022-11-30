@@ -31,7 +31,7 @@ def get_optimizer_config():
         "path_test_data": "../../data/boom_trial1_10hz.pkl",
         "gp_training_iter": 500,
         "controller_type": "NN",
-        "gpmodel": "results/GPmodel.pkl",
+        "gpmodel": "results/gp/GPmodel.pkl",
         "force_cpu": False,
         "optimizer_opts": {
             "optimizer": "Adam",
@@ -43,7 +43,7 @@ def get_optimizer_config():
         "is_deterministic_init": True,
         # full: non-colliding uniform random R,s , 'constrained': only between certain
         # areas, 'grid' (only MC analysis)
-        "initial_distr": "grid",
+        "initial_distr": "full",
         # 'train_for_collision': False, # keep collision constraints and penalties in
         # trainings
         "is_deterministic_goal": True,

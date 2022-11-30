@@ -1,6 +1,8 @@
 from loguru import logger
 import torch
 
+from utils.miscellaneous import set_device, set_device_cpu
+
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)
 
@@ -14,10 +16,10 @@ class Controller:
             logger.debug(f"attribute {key}: {value}")
         # set device
         if not self.force_cpu:
-            self.set_device()
+            set_device(self)
         else:
             logger.info("Forcing CPU as processor...")
-            self.set_device_cpu()
+            set_device_cpu(self)
 
     def init_controller(self):
         if self.controller_type == "Linear":
@@ -35,18 +37,21 @@ class Controller:
                     self.NNlayers[0],
                     device=self.device,
                     dtype=self.dtype,
+                    bias=False,
                 ),
                 torch.nn.Linear(
                     self.NNlayers[0],
                     self.NNlayers[1],
                     device=self.device,
                     dtype=self.dtype,
+                    bias=False,
                 ),
                 torch.nn.Linear(
                     self.NNlayers[1],
                     self.control_dim,
                     device=self.device,
                     dtype=self.dtype,
+                    bias=False,
                 ),
                 torch.nn.Hardtanh(),
             )
@@ -55,17 +60,3 @@ class Controller:
         logger.debug(f"Controller Model: {self.controller}")
         self.controller.predict = self.controller.forward
         return self.controller
-
-    def set_device(self):
-        self.is_cuda = torch.cuda.is_available()
-        # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
-        self.dtype = torch.float32
-        self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        logger.info(f"using GPU: {self.is_cuda} - using processor: *({self.device})")
-
-    def set_device_cpu(self):
-        self.is_cuda = False
-        # self.Tensortype = torch.cuda.FloatTensor if is_cuda else torch.FloatTensor
-        self.dtype = torch.float32
-        self.device = torch.device("cuda:0") if self.is_cuda else torch.device("cpu")
-        logger.info(f"Forcing CPU... using processor: *({self.device})")

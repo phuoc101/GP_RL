@@ -4,6 +4,7 @@ from loguru import logger
 import numpy as np
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import matplotlib.lines as line
 from utils.miscellaneous import get_tensor
 
 
@@ -173,17 +174,118 @@ def plot_MC(Tf, dt, target, x_lb, x_ub, M_mean, M_trajs, save_dir=None):
     for Q in [ax_pos, ax_u]:
         Q.grid(linestyle="--")
         Q.set_xlim((0, time_vec[-1]))
-        Q.legend()
+        # manually generate labels
+        handles, labels = Q.get_legend_handles_labels()
+        lines = [
+            line.Line2D(
+                [],
+                [],
+                color=handle.get_color(),
+                linestyle=handle.get_linestyle(),
+                label=label,
+            )
+            for handle, label in zip(handles, labels)
+        ]
+        Q.legend(
+            handles=lines,
+            bbox_to_anchor=(1.005, 1),
+            borderaxespad=0.0,
+            frameon=False,
+        )
+    if save_dir is not None:
+        # save figures but do not show
+        os.makedirs(save_dir, exist_ok=True)
+        fig_pos.savefig(os.path.join(save_dir, "_fig_pos.png"))
+        fig_u.savefig(os.path.join(save_dir, "_fig_u.png"))
+
+        # save figures pdf
+        fig_pos.savefig(os.path.join(save_dir, "_fig_pos.pdf"))
+        fig_u.savefig(os.path.join(save_dir, "_fig_u.pdf"))
+
+    else:
+        plt.show()
+
+
+def plot_MC_non_det(Tf, dt, target, x_lb, x_ub, M_trajs_non_det, save_dir=None):
+    plt.rc("font", family="serif")
+
+    fig_pos, ax_pos = plt.subplots(1, 1)
+    # fig2D, ax2D = plt.subplots(1, 1)
+    fig_u, ax_u = plt.subplots(1, 1)
+    fig_pos.set_size_inches((7, 6))
+
+    time_vec = np.arange(0, dt * (M_trajs_non_det.shape[2]), dt)
+    time_vec_horizon = np.arange(0, Tf, dt)
+    # one-time plots
+    targetlineopt = "g--"
+    targetlinewidth = 1.6
+    targetlinealpha = 0.9
+    zo1 = 20
+    # target R
+    ax_pos.plot(
+        time_vec_horizon,
+        np.repeat(target[0], len(time_vec_horizon)),
+        targetlineopt,
+        linewidth=targetlinewidth,
+        alpha=targetlinealpha,
+        zorder=zo1,
+        label="Goal",
+    )
+
+    # Monte Carlo trajectories
+    total_realizations = M_trajs_non_det.shape[0]  # + mean trajectory
+    for k in range(total_realizations):
+        x_data = M_trajs_non_det[k, 0, :]
+        u_data = M_trajs_non_det[k, -1, :]
+        # lineopt = "b-"  # blue line (Monte Carlo M_trajs)
+        zo = 0  # zorder (lowest plot layer)
+        default_alpha = 0.1
+        # label_x = "Monte Carlo trajectory"
+        # label_u = "Monte Carlo input"
+        ax_pos.plot(time_vec, x_data, alpha=default_alpha, zorder=zo)
+        ax_u.plot(time_vec, u_data, alpha=default_alpha, zorder=zo)
+
+        # rewards
+        # ax5[3].plot(timeVec, self.reward, lineopt, zorder = zo)
+    plot_max_x = 1.2 * x_ub[0]
+    ax_pos.set_ylabel("Position")
+    ax_pos.set_ylim((-plot_max_x, plot_max_x))
+    ax_pos.set_xlim((0, time_vec[-1]))
+
+    ax_u.set_ylabel("control input")
+
+    # ax2D.grid(linestyle="--")
+    for Q in [ax_pos, ax_u]:
+        # manually generate labels
+        Q.grid(linestyle="--")
+        Q.set_xlim((0, time_vec[-1]))
+        handles, labels = Q.get_legend_handles_labels()
+        lines = [
+            line.Line2D(
+                [],
+                [],
+                color=handle.get_color(),
+                linestyle=handle.get_linestyle(),
+                label=label,
+            )
+            for handle, label in zip(handles, labels)
+        ]
+        Q.legend(
+            handles=lines,
+            bbox_to_anchor=(1.005, 1),
+            borderaxespad=0.0,
+            frameon=False,
+        )
 
     if save_dir is not None:
         # save figures but do not show
         os.makedirs(save_dir, exist_ok=True)
-        fig_pos.savefig(os.path.join(save_dir, "_fig_1RV.png"))
-        fig_u.savefig(os.path.join(save_dir, "_fig_4control.png"))
+        fig_pos.savefig(os.path.join(save_dir, "_fig_pos_nondet.png"))
+        fig_u.savefig(os.path.join(save_dir, "_fig_u_nondet.png"))
 
         # save figures pdf
-        fig_pos.savefig(os.path.join(save_dir, "_fig_1RV.pdf"))
-        fig_u.savefig(os.path.join(save_dir, "_fig_4control.pdf"))
+        fig_pos.savefig(os.path.join(save_dir, "_fig_pos_nondet.pdf"))
+        fig_u.savefig(os.path.join(save_dir, "_fig_u_nondet.pdf"))
 
     else:
         plt.show()

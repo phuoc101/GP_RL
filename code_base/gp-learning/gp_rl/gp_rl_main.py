@@ -21,6 +21,7 @@ def main(opts):
     controller_config = configs.get_controller_config()
     controller_config = {
         **controller_config,
+        "controller_type": opts.controller_type,
         "force_cpu": opts.force_cpu,
         "state_dim": opts.num_states,
         "control_dim": opts.control_dim,
@@ -48,11 +49,11 @@ def main(opts):
         "initial_distr": opts.initial_distr,
         "is_deterministic_goal": not opts.nondet_goal,
         "goal_distr": opts.goal_distr,
+        "Tf": opts.tf,
         # load gp and controller configs
         "gp_config": gp_config,
         "controller_config": controller_config,
     }
-    print(f"IS_DETERMINISTIC_GOAL: {opts.nondet_goal}")
     policy_optimizer = PolicyOptimizer(**config)
     policy_optimizer.optimize_policy()
     policy_optimizer.MC_oneSweep()
@@ -63,7 +64,9 @@ if __name__ == "__main__":
     # fmt: off
     parser.add_argument("--train-data", default="../data/boom_xu_trial6_10hz.pkl", help="Path to training dataset")  # noqa
     parser.add_argument("--test-data", default="../data/boom_xu_trial3_10hz.pkl", help="Path to test dataset")  # noqa
+    parser.add_argument("--controller-type", default="NN", help="Type of controller (Linear or NN)") # noqa
     parser.add_argument("--num-states", type=int, default=1, help="Number of tasks: 2 for xv and 1 for x") # noqa
+    parser.add_argument("--tf", type=int, default=10, help="Maximum time for 1 trial") # noqa
     parser.add_argument("--force_cpu", action="store_true", help="Force using CPU")  # noqa
     parser.add_argument("--normalize", action="store_true", help="Normalize training data") # noqa
     parser.add_argument("--force-train-gp", action="store_true", help="Force training GP model") # noqa
@@ -85,5 +88,4 @@ if __name__ == "__main__":
     opts = parser.parse_args()
     logger.remove()
     logger.add(sys.stderr, level=opts.verbose)
-    print(opts.learning_rate)
     main(opts)

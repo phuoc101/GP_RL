@@ -55,7 +55,7 @@ def get_optimizer_config():
         # initial and goal state
         "init_state": np.array([-1, 0]),
         "target_state": np.array([0, 0]),
-        "Tf": 100,  # T final - seconds
+        "Tf": 30,  # T final - seconds
         "dt": 0.1,  # in seconds, so frequency is 10Hz
         "W_R": np.diag([0.5, 0.2]),
         "normalize_target": True,

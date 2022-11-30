@@ -48,7 +48,7 @@ def plot_reward(x_lb, x_ub, file_path, get_reward):
     logger.info("reward plot saved to {}".format(file_path))
 
 
-def plot_policy(controller, x_lb, x_ub, policy_log_dir, iter=1):
+def plot_policy(controller, x_lb, x_ub, policy_log_dir, trial=1):
     n_x = 100
     # calc normalized 2Dmap
     # (
@@ -56,17 +56,18 @@ def plot_policy(controller, x_lb, x_ub, policy_log_dir, iter=1):
     #     Xgd_2Dnormalized,
     #     Vgd_2Dnormalized,
     # ) = self.get_grid_stacked_inputs(n_x, n_x)
-    inputs = np.linspace(x_lb[0], x_ub[0], n_x)
+    num_states = len(x_lb) - 1
+    inputs = np.linspace(x_lb[0:num_states], x_ub[0:num_states], n_x)
     # actions = self.linearModel(stacked_inputs) #debugging
-    actions = controller(get_tensor(inputs.reshape(-1, 1)))
+    actions = controller(get_tensor(inputs.reshape(-1, num_states)))
     # actions = actions.reshape(n_x, n_x).cpu().detach().numpy()
     f, ax = plt.subplots(1, 1, figsize=(4, 3))
     ax.set_xlabel("x")
     ax.set_ylabel("u")
-    ax.set_title(f"Policy Plot iter {iter}")
+    ax.set_title(f"Policy Plot trial {trial}")
     ax.plot(inputs, actions.cpu().detach().numpy())
     os.makedirs(policy_log_dir, exist_ok=True)
-    plt.savefig(os.path.join(policy_log_dir, f"policy_plot_{iter}.png"), dpi=100)
+    plt.savefig(os.path.join(policy_log_dir, f"policy_plot_{trial}.png"), dpi=100)
     logger.info("policy plot saved...")
 
 
@@ -239,7 +240,7 @@ def plot_MC_non_det(Tf, dt, target, x_lb, x_ub, M_trajs_non_det, save_dir=None):
         u_data = M_trajs_non_det[k, -1, :]
         # lineopt = "b-"  # blue line (Monte Carlo M_trajs)
         zo = 0  # zorder (lowest plot layer)
-        default_alpha = 0.1
+        default_alpha = 0.5
         # label_x = "Monte Carlo trajectory"
         # label_u = "Monte Carlo input"
         ax_pos.plot(time_vec, x_data, alpha=default_alpha, zorder=zo)

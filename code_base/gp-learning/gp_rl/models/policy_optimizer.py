@@ -132,7 +132,7 @@ class PolicyOptimizer:
             )
             self.reset()
             # Initialize a new controller
-            # self.controller = self.get_controller()
+            self.controller = self.get_controller()
             controller_initial = deepcopy(self.controller)
 
             self.set_optimizer()
@@ -167,7 +167,7 @@ class PolicyOptimizer:
                 x_lb=self.x_lb,
                 x_ub=self.x_ub,
                 policy_log_dir=os.path.join(self.optimizer_log_dir, "policies"),
-                iter=tl + 1,
+                trial=tl + 1,
             )
             logger.info(
                 "Controller's optimization: done in %.1f seconds with reward=%.3f."
@@ -233,7 +233,7 @@ class PolicyOptimizer:
         initial_state = self.generate_init_state(
             is_det=self.is_deterministic_init, n_trajs=self.n_trajectories
         )
-        self.target_state = self.generate_goal()
+        self.target_state = self.generate_goal(is_det=self.is_deterministic_goal)
         # if self.normalize_target:
         #     self.target_state = np.divide(
         #         self.target_state - self.mean_states, self.std_states
@@ -290,9 +290,9 @@ class PolicyOptimizer:
                 dtype=self.dtype,
             )
 
-    def generate_goal(self):
+    def generate_goal(self, is_det):
         # in deterministic, default values are already in config
-        if not self.is_deterministic_goal:
+        if not is_det:
             if self.goal_distr == "full":
                 goal_state = np.random.uniform(
                     self.x_lb[0 : self.state_dim],
@@ -324,7 +324,11 @@ class PolicyOptimizer:
         reward = np.exp(-np.divide((state_error) ** 2, sigma2))
         return reward
 
-    def calc_realizations(self, gp_model, controller):
+    def calc_realizations(self, gp_model=None, controller=None):
+        if gp_model is None:
+            gp_model = self.gp_model
+        if controller is None:
+            controller = self.controller
         n_trajectories = self.n_trajectories  # number of (parallel) trajectories
         # initialize big tensor, keeping track of all variables
         M = get_tensor(
@@ -344,12 +348,16 @@ class PolicyOptimizer:
         )
         # assign data to M, memory := sys.getsizeof(M.storage())
         M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-        logger.info("starting trajectory realization...")
+        logger.info("Starting Monte Carlo trajectory realization...")
         t1 = time.perf_counter()
+        target_tensor = get_tensor(
+            data=self.generate_goal(is_det=True), device=self.device, dtype=self.dtype
+        )
+
         for k in range(self.horizon - 1):
             with torch.no_grad():
                 # get u:  state -> controller -> u
-                M[:, -1, k] = controller.forward(M[:, :-1, k])[:, 0]
+                M[:, -1, k] = controller.forward(M[:, :-1, k] - target_tensor)[:, 0]
                 # predict next state: s_{t+1} = GP(s,u)
                 predictions = gp_model.predict(M[:, :, k])
             randtensor = (
@@ -364,8 +372,12 @@ class PolicyOptimizer:
         return M
 
     def calc_realization_mean(
-        self, gp_model, controller
+        self, gp_model=None, controller=None
     ):  # mean of GP predictions, no sampling
+        if gp_model is None:
+            gp_model = self.gp_model
+        if controller is None:
+            controller = self.controller
         n_trajectories = 1  # number of (parallel) trajectories
         # initialize big tensor, keeping track of all variables
         M = get_tensor(
@@ -382,12 +394,15 @@ class PolicyOptimizer:
 
         # assign data to M, memory := sys.getsizeof(M.storage())
         M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-        logger.info("starting trajectory realization...")
+        target_tensor = get_tensor(
+            data=self.generate_goal(is_det=True), device=self.device, dtype=self.dtype
+        )
+        logger.info("Starting mean trajectory realization...")
         t1 = time.perf_counter()
         for k in range(self.horizon - 1):
             # get u:  state -> controller -> u
             with torch.no_grad():
-                M[:, -1, k] = controller(M[:, :-1, k])[:, 0]
+                M[:, -1, k] = controller(M[:, :-1, k] - target_tensor)[:, 0]
                 # predict next state: s_{t+1} = GP(s,u)
                 predictions = gp_model.predict(M[:, :, k])
             px = predictions.mean
@@ -395,6 +410,47 @@ class PolicyOptimizer:
             M[:, :-1, k + 1] = M[:, :-1, k] + px
         t_elapsed = time.perf_counter() - t1
         logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
+        return M
+
+    def calc_realizations_non_det_init(
+        self, n_trajs_sim, gp_model=None, controller=None
+    ):
+        if gp_model is None:
+            gp_model = self.gp_model
+        if controller is None:
+            controller = self.controller
+        # initialize big tensor, keeping track of all variables
+        M = get_tensor(
+            torch.zeros((n_trajs_sim, self.state_dim + self.control_dim, self.horizon)),
+            device=self.device,
+            dtype=self.dtype,
+        )
+        # initial state+u and concat
+        state = self.generate_init_state(is_det=False, n_trajs=n_trajs_sim)
+        self.randTensor = get_tensor(
+            torch.randn((n_trajs_sim, self.state_dim, self.horizon)),
+            device=self.device,
+            dtype=self.dtype,
+        )
+        # assign data to M, memory := sys.getsizeof(M.storage())
+        M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
+        logger.info(
+            "Starting trajectory realization with non-deterministic initialization..."
+        )
+        t1 = time.perf_counter()
+        for k in range(self.horizon - 1):
+            with torch.no_grad():
+                # get u:  state -> controller -> u
+                M[:, -1, k] = controller.forward(M[:, :-1, k])[:, 0]
+                # predict next state: s_{t+1} = GP(s,u)
+                predictions = gp_model.predict(M[:, :, k])
+            px = predictions.mean
+            # predict next state
+            M[:, :-1, k + 1] = M[:, :-1, k] + px
+
+        t_elapsed = time.perf_counter() - t1
+        logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
+        # logger.debug(f"size of randomTensor is {randtensor.shape}")
         return M
 
     def MC_oneSweep(self, controller=None, gp_model=None):
@@ -431,36 +487,3 @@ class PolicyOptimizer:
             M_trajectories_nondet,
             save_dir=os.path.join(self.optimizer_log_dir, "MC_sim"),
         )
-
-    def calc_realizations_non_det_init(self, n_trajs_sim, gp_model, controller):
-        # initialize big tensor, keeping track of all variables
-        M = get_tensor(
-            torch.zeros((n_trajs_sim, self.state_dim + self.control_dim, self.horizon)),
-            device=self.device,
-            dtype=self.dtype,
-        )
-        # initial state+u and concat
-        state = self.generate_init_state(is_det=False, n_trajs=n_trajs_sim)
-        self.randTensor = get_tensor(
-            torch.randn((n_trajs_sim, self.state_dim, self.horizon)),
-            device=self.device,
-            dtype=self.dtype,
-        )
-        # assign data to M, memory := sys.getsizeof(M.storage())
-        M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-        logger.info("starting trajectory realization...")
-        t1 = time.perf_counter()
-        for k in range(self.horizon - 1):
-            with torch.no_grad():
-                # get u:  state -> controller -> u
-                M[:, -1, k] = controller.forward(M[:, :-1, k])[:, 0]
-                # predict next state: s_{t+1} = GP(s,u)
-                predictions = gp_model.predict(M[:, :, k])
-            px = predictions.mean
-            # predict next state
-            M[:, :-1, k + 1] = M[:, :-1, k] + px
-
-        t_elapsed = time.perf_counter() - t1
-        logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
-        # logger.debug(f"size of randomTensor is {randtensor.shape}")
-        return M

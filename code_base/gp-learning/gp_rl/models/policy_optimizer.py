@@ -11,7 +11,13 @@ from models.controller import Controller
 from utils.data_loading import save_data, load_training_data, load_test_data
 from utils.plot import plot_policy, plot_reward, plot_MC, plot_MC_non_det
 from utils.torch_utils import get_tensor, set_device, set_device_cpu
-from utils.init import generate_goal, generate_init_state
+from utils.rl_utils import (
+    generate_goal,
+    generate_init_state,
+    calc_realization_mean,
+    calc_realizations,
+    calc_realizations_non_det_init,
+)
 
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)
@@ -68,6 +74,7 @@ class PolicyOptimizer:
         model.initialize_model(
             path_model=self.gpmodel,
             path_train_data=self.path_train_data,
+            force_train=self.force_train_gp,
         )
         return model
 
@@ -121,6 +128,11 @@ class PolicyOptimizer:
         trials = self.optimizer_opts["trials"]
         all_optim_data = {"all_optimizer_data": []}
         os.makedirs(self.optimizer_log_dir, exist_ok=True)
+        logger.info(
+            "Optimizing policy with {} optimizer...".format(
+                self.optimizer_opts["optimizer"]
+            )
+        )
         for tl in range(trials):
             # optimization algorithm:  self.configs['optimopts']['optimizer']
             logger.info(f"Starting optimization trial {tl+1}/{trials}...")
@@ -191,7 +203,7 @@ class PolicyOptimizer:
         # state = torch.cat(self.obs_torch, dim=0)
         state = deepcopy(self.obs_torch)
         u = self.controller(state)
-        rew = self.rew_exp_torch_batch_all(state[:, 0])
+        rew = self.rew_exp_torch_batch_all(state[:, 0], target_state=self.target_state)
         logger.debug("starting trajectory realization...")
         t1 = time.perf_counter()
         target_tensor = get_tensor(
@@ -211,7 +223,9 @@ class PolicyOptimizer:
                 + torch.mul(predictions.stddev, self.randTensor[:, :, k])
             )
             # get reward
-            rewards = self.rew_exp_torch_batch_all(next_state[:, 0])
+            rewards = self.rew_exp_torch_batch_all(
+                next_state[:, 0], target_state=self.target_state
+            )
             rew = rew + rewards
             state = next_state
             # input()
@@ -227,9 +241,24 @@ class PolicyOptimizer:
 
         # generate init/goal states
         initial_state = generate_init_state(
-            self=self, is_det=self.is_deterministic_init, n_trajs=self.n_trajectories
+            is_det=self.is_deterministic_init,
+            n_trajs=self.n_trajectories,
+            initial_distr=self.initial_distr,
+            x_lb=self.x_lb,
+            x_ub=self.x_ub,
+            state_dim=self.state_dim,
+            default_init_state=self.init_state,
+            device=self.device,
+            dtype=self.dtype,
         )
-        self.target_state = generate_goal(self=self, is_det=self.is_deterministic_goal)
+        self.target_state = generate_goal(
+            is_det=self.is_deterministic_goal,
+            goal_distr=self.goal_distr,
+            x_lb=self.x_lb,
+            x_ub=self.x_ub,
+            state_dim=self.state_dim,
+            default_target_state=self.target_state,
+        )
         # if self.normalize_target:
         #     self.target_state = np.divide(
         #         self.target_state - self.mean_states, self.std_states
@@ -250,161 +279,49 @@ class PolicyOptimizer:
         # logger.info(f"observation type: {type(self.obs_torch)}")
         return self.obs_torch
 
-    def rew_exp_torch_batch_all(self, x):
+    def rew_exp_torch_batch_all(self, x, target_state):
         # returns sum of all rewards over all horizon over all trajs
         sigma2 = self.W_R[0, 0] ** 2
         state_error = x - self.target_state[0]
         reward = torch.exp(-torch.divide(torch.pow(state_error, 2), sigma2))
         return torch.sum(reward)
 
-    def rew_exponential_PILCO(self, x):
+    def rew_exponential_PILCO(self, x, target_state):
         sigma2 = self.W_R[0, 0] ** 2
         state_error = x - self.target_state[0]
         reward = np.exp(-np.divide((state_error) ** 2, sigma2))
         return reward
 
-    def calc_realizations(self, gp_model=None, controller=None):
-        if gp_model is None:
-            gp_model = self.gp_model
-        if controller is None:
-            controller = self.controller
-        n_trajectories = self.n_trajectories  # number of (parallel) trajectories
-        # initialize big tensor, keeping track of all variables
-        M = get_tensor(
-            torch.zeros(
-                (n_trajectories, self.state_dim + self.control_dim, self.horizon)
-            ),
-            device=self.device,
-            dtype=self.dtype,
-        )
-        # initial state+u and concat
-        # state = deepcopy(self.obs_torch)
-        state = generate_init_state(self=self, is_det=True, n_trajs=self.n_trajectories)
-        self.randTensor = get_tensor(
-            torch.randn((self.n_trajectories, self.state_dim, self.horizon)),
-            device=self.device,
-            dtype=self.dtype,
-        )
-        # assign data to M, memory := sys.getsizeof(M.storage())
-        M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-        logger.info("Starting Monte Carlo trajectory realization...")
-        t1 = time.perf_counter()
-        target_tensor = get_tensor(
-            data=generate_goal(self=self, is_det=True),
-            device=self.device,
-            dtype=self.dtype,
-        )
-
-        for k in range(self.horizon - 1):
-            with torch.no_grad():
-                # get u:  state -> controller -> u
-                M[:, -1, k] = controller(M[:, :-1, k] - target_tensor)[:, 0]
-                # predict next state: s_{t+1} = GP(s,u)
-                predictions = gp_model.predict(M[:, :, k])
-            randtensor = (
-                predictions.mean + predictions.stddev * self.randTensor[:, :, k]
-            )
-            # predict next state
-            M[:, :-1, k + 1] = M[:, :-1, k] + randtensor
-
-        t_elapsed = time.perf_counter() - t1
-        logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
-        # logger.debug(f"size of randomTensor is {randtensor.shape}")
-        return M
-
-    def calc_realization_mean(
-        self, gp_model=None, controller=None
-    ):  # mean of GP predictions, no sampling
-        if gp_model is None:
-            gp_model = self.gp_model
-        if controller is None:
-            controller = self.controller
-        n_trajectories = 1  # number of (parallel) trajectories
-        # initialize big tensor, keeping track of all variables
-        M = get_tensor(
-            data=torch.zeros(
-                (n_trajectories, self.state_dim + self.control_dim, self.horizon)
-            ),
-            device=self.device,
-            dtype=self.dtype,
-        )
-        # initial state+u and concat
-        # state = torch.cat(n_trajectories * [self.obs_torch[None, :]], dim=0)
-        # state = torch.cat(self.obs_torch, dim=0)
-        state = generate_init_state(self=self, is_det=True, n_trajs=n_trajectories)
-
-        # assign data to M, memory := sys.getsizeof(M.storage())
-        M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-        target_tensor = get_tensor(
-            data=generate_goal(self=self, is_det=True),
-            device=self.device,
-            dtype=self.dtype,
-        )
-        logger.info("Starting mean trajectory realization...")
-        t1 = time.perf_counter()
-        for k in range(self.horizon - 1):
-            # get u:  state -> controller -> u
-            with torch.no_grad():
-                M[:, -1, k] = controller(M[:, :-1, k] - target_tensor)[:, 0]
-                # predict next state: s_{t+1} = GP(s,u)
-                predictions = gp_model.predict(M[:, :, k])
-            px = predictions.mean
-            # predict next state
-            M[:, :-1, k + 1] = M[:, :-1, k] + px
-        t_elapsed = time.perf_counter() - t1
-        logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
-        return M
-
-    def calc_realizations_non_det_init(
-        self, n_trajs_sim, gp_model=None, controller=None
-    ):
-        if gp_model is None:
-            gp_model = self.gp_model
-        if controller is None:
-            controller = self.controller
-        # initialize big tensor, keeping track of all variables
-        M = get_tensor(
-            torch.zeros((n_trajs_sim, self.state_dim + self.control_dim, self.horizon)),
-            device=self.device,
-            dtype=self.dtype,
-        )
-        # initial state+u and concat
-        state = generate_init_state(self=self, is_det=False, n_trajs=n_trajs_sim)
-        self.randTensor = get_tensor(
-            torch.randn((n_trajs_sim, self.state_dim, self.horizon)),
-            device=self.device,
-            dtype=self.dtype,
-        )
-        # assign data to M, memory := sys.getsizeof(M.storage())
-        M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-        logger.info(
-            "Starting trajectory realization with non-deterministic initialization..."
-        )
-        t1 = time.perf_counter()
-        for k in range(self.horizon - 1):
-            with torch.no_grad():
-                # get u:  state -> controller -> u
-                M[:, -1, k] = controller(M[:, :-1, k])[:, 0]
-                # predict next state: s_{t+1} = GP(s,u)
-                predictions = gp_model.predict(M[:, :, k])
-            px = predictions.mean
-            # predict next state
-            M[:, :-1, k + 1] = M[:, :-1, k] + px
-
-        t_elapsed = time.perf_counter() - t1
-        logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
-        # logger.debug(f"size of randomTensor is {randtensor.shape}")
-        return M
-
-    def MC_oneSweep(self, controller=None, gp_model=None):
-        if gp_model is None:
-            gp_model = self.gp_model
-        if controller is None:
-            controller = self.controller
+    def MC_oneSweep(self, controller, gp_model):
         M_trajectories = (
-            self.calc_realizations(gp_model, controller).cpu().detach().numpy()
+            calc_realizations(
+                gp_model=gp_model,
+                controller=controller,
+                n_trajectories=self.n_trajectories,
+                state_dim=self.state_dim,
+                control_dim=self.control_dim,
+                horizon=self.horizon,
+                init_state=self.init_state,
+                target_state=self.target_state,
+            )
+            .cpu()
+            .detach()
+            .numpy()
         )
-        M_mean = self.calc_realization_mean(gp_model, controller).cpu().detach().numpy()
+        M_mean = (
+            calc_realization_mean(
+                gp_model=gp_model,
+                controller=controller,
+                state_dim=self.state_dim,
+                control_dim=self.control_dim,
+                horizon=self.horizon,
+                init_state=self.init_state,
+                target_state=self.target_state,
+            )
+            .cpu()
+            .detach()
+            .numpy()
+        )
         plot_MC(
             self.Tf,
             self.dt,
@@ -416,17 +333,26 @@ class PolicyOptimizer:
             save_dir=os.path.join(self.optimizer_log_dir, "MC_sim"),
         )
         M_trajectories_nondet = (
-            self.calc_realizations_non_det_init(50, gp_model, controller)
+            calc_realizations_non_det_init(
+                n_trajs_sim=50,
+                gp_model=gp_model,
+                controller=controller,
+                state_dim=self.state_dim,
+                control_dim=self.control_dim,
+                horizon=self.horizon,
+                init_state=self.init_state,
+                target_state=self.target_state,
+            )
             .cpu()
             .detach()
             .numpy()
         )
         plot_MC_non_det(
-            self.Tf,
-            self.dt,
-            self.target_state,
-            self.x_lb,
-            self.x_ub,
-            M_trajectories_nondet,
+            Tf=self.Tf,
+            dt=self.dt,
+            target=self.target_state,
+            x_lb=self.x_lb,
+            x_ub=self.x_ub,
+            M_trajs_non_det=M_trajectories_nondet,
             save_dir=os.path.join(self.optimizer_log_dir, "MC_sim"),
         )

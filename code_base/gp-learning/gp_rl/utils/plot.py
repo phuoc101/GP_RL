@@ -6,6 +6,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.lines as line
 from utils.torch_utils import get_tensor
+from utils.data_loading import load_test_data
 
 
 def make_2D_normalized_grid(xlb, xub, n_x=30, n_y=30):
@@ -290,3 +291,35 @@ def plot_MC_non_det(Tf, dt, target, x_lb, x_ub, M_trajs_non_det, save_dir=None):
 
     else:
         plt.show()
+
+
+def plot_gp(
+    gpmodel, test_data, num_states, device=torch.device("cuda:0"), dtype=torch.float32
+):
+    X_test, y_test = load_test_data(num_inputs=num_states, data_path=test_data)
+    X_test = X_test.to(device, dtype)
+    y_test = y_test.to(device, dtype)
+    pred_mean, pred_conf = gpmodel.eval(X_test, y_test)
+    print(type(X_test))
+    if isinstance(X_test, torch.Tensor):
+        X_test = X_test.cpu().numpy()
+        y_test = y_test.cpu().numpy()
+    real_pos = X_test[:, 0]
+    real_dx = y_test[:, 0]  # label of dx
+    pos_init = X_test[0, 0]
+    pos_pred_mean_delta = pred_mean[:, 0]
+    pos_pred_mean = np.ones(len(pos_pred_mean_delta)) * pos_init
+    for i, delta in enumerate(pos_pred_mean_delta):
+        if i > 0:
+            pos_pred_mean[i] = pos_pred_mean[i - 1] + delta
+    fig, ax = plt.subplots(2)
+    ax[0].set_title(f"GP model prediction on {test_data}")
+    ax[0].plot(real_pos, label="real_pos")
+    ax[0].plot(pos_pred_mean, label="integrated_pos")
+    ax[1].plot(real_dx, label="real_dx")
+    ax[1].plot(pred_mean[:, 0], label="pred_dx")
+
+    ax[0].legend()
+    ax[1].legend()
+
+    plt.show()

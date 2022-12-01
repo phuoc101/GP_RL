@@ -54,7 +54,7 @@ def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=Fal
     return X, y, mean_states, std_states, x_lb, x_ub
 
 
-def load_test_data(data_path, num_inputs=3, output_torch=True, normalize=True):
+def load_test_data(data_path, num_inputs=3, output_torch=True, normalize=False):
     """
     call this to load <test_data>.pkl that was saved in processing
     - normalizes data

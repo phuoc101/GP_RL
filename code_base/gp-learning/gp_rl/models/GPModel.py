@@ -30,33 +30,35 @@ class GPModel:
             logger.info("Forcing CPU as processor...")
             set_device_cpu(self)
 
-    def initialize_model(self, path_train_data, path_model=""):
-        if not os.path.isfile(path_model) or self.force_train:
+    def initialize_model(self, path_train_data=None, path_model="", force_train=False):
+        if not os.path.isfile(path_model) or force_train:
             # initialize models, train, save
             # load train data
-            (
-                self.X_train,
-                self.y_train,
-                self.mean_states,
-                self.std_states,
-                self.x_lb,
-                self.x_ub,
-            ) = load_training_data(
-                num_inputs=self.num_tasks + 1,  # +1 for u input
-                data_path=path_train_data,
-                output_torch=self.torch_output,
-                normalize=self.normalize_train,
-            )
-            # convert to GPU if required
-            self.X_train = self.X_train.to(self.device, self.dtype)
-            self.y_train = self.y_train.to(self.device, self.dtype)
-            logger.debug(f"X train shape: {self.X_train.shape}")
-            logger.debug(f"y train shape: {self.y_train.shape}")
-            logger.info(
-                "Loaded training dataset {} with {} datapoints".format(
-                    path_train_data, len(self.X_train)
+            print(path_train_data)
+            if path_train_data is not None:
+                (
+                    self.X_train,
+                    self.y_train,
+                    self.mean_states,
+                    self.std_states,
+                    self.x_lb,
+                    self.x_ub,
+                ) = load_training_data(
+                    num_inputs=self.num_tasks + 1,  # +1 for u input
+                    data_path=path_train_data,
+                    output_torch=self.torch_output,
+                    normalize=self.normalize_train,
                 )
-            )
+                # convert to GPU if required
+                self.X_train = self.X_train.to(self.device, self.dtype)
+                self.y_train = self.y_train.to(self.device, self.dtype)
+                logger.debug(f"X train shape: {self.X_train.shape}")
+                logger.debug(f"y train shape: {self.y_train.shape}")
+                logger.info(
+                    "Loaded training dataset {} with {} datapoints".format(
+                        path_train_data, len(self.X_train)
+                    )
+                )
 
             self.likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(
                 num_tasks=self.num_tasks
@@ -132,24 +134,14 @@ class GPModel:
         self.model.eval()
         self.likelihood.eval()
 
-    def eval(self, path_test_data):
+    def eval(self, X_test, y_test):
         """
         quantify how good it is agaist test data
         """
-        # Load test data
-        self.X_test, self.y_test = load_test_data(
-            num_inputs=self.num_tasks + 1,
-            data_path=path_test_data,
-            output_torch=True,
-            normalize=True,
-        )
-        self.X_test = self.X_test.to(self.device, self.dtype)
-        self.y_test = self.y_test.to(self.device, self.dtype)
-
         logger.debug("Starting batch querying GP with test data")
         t1_GPQueryingBatch = time.perf_counter()
-        X_test = self.X_test
-        y_test = self.y_test
+        # X_test = self.X_test
+        # y_test = self.y_test
         logger.debug(f"X test shape: {X_test.shape}")
         logger.debug(f"y test shape: {y_test.shape}")
         y_pred = self.predict(X_test)

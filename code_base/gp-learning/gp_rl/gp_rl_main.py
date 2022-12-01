@@ -6,7 +6,7 @@ from cfg import configs
 from models.policy_optimizer import PolicyOptimizer
 
 
-def main(opts):
+def get_configs(opts):
     # set gp config
     gp_config = configs.get_gp_train_config()
     gp_config = {
@@ -50,10 +50,16 @@ def main(opts):
         "is_deterministic_goal": not opts.nondet_goal,
         "goal_distr": opts.goal_distr,
         "Tf": opts.tf,
+        "force_train_gp": opts.force_train_gp,
         # load gp and controller configs
         "gp_config": gp_config,
         "controller_config": controller_config,
     }
+    return config
+
+
+def main(opts):
+    config = get_configs(opts)
     policy_optimizer = PolicyOptimizer(**config)
     policy_optimizer.optimize_policy()
     if opts.plot_mc:

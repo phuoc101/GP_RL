@@ -26,12 +26,13 @@ def get_controller_config():
 def get_optimizer_config():
     return {
         "state_dim": 1,  # number of observations
+        "force_train_gp": False,
         "control_dim": 1,  # number of actions
-        "path_train_data": "../../data/boom_trial6_10hz.pkl",
-        "path_test_data": "../../data/boom_trial1_10hz.pkl",
+        "path_train_data": None,
+        "path_test_data": None,
         "gp_training_iter": 500,
         "controller_type": "NN",
-        "gpmodel": "results/gp/GPmodel.pkl",
+        "gpmodel": None,
         "force_cpu": False,
         "optimizer_opts": {
             "optimizer": "Adam",

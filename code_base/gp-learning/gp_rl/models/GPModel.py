@@ -3,10 +3,11 @@ import numpy as np
 import gpytorch
 import time
 import torch
+
 from models.BatchIndependentMultitaskGPModel import BatchIndependentMultitaskGPModel
 from loguru import logger
 from utils.data_loading import load_training_data, load_test_data, load_data, save_data
-from utils.miscellaneous import set_device_cpu, set_device
+from utils.torch_utils import set_device_cpu, set_device
 
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)

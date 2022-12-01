@@ -10,7 +10,8 @@ from models.GPModel import GPModel
 from models.controller import Controller
 from utils.data_loading import save_data, load_training_data, load_test_data
 from utils.plot import plot_policy, plot_reward, plot_MC, plot_MC_non_det
-from utils.miscellaneous import get_tensor, set_device, set_device_cpu
+from utils.torch_utils import get_tensor, set_device, set_device_cpu
+from utils.init import generate_goal, generate_init_state
 
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)
@@ -110,7 +111,6 @@ class PolicyOptimizer:
         else:
             raise NotImplementedError
 
-    # for SGD directly on policy parameters
     def optimize_policy(self):
         """
         Optimize controller's parameter's
@@ -123,7 +123,6 @@ class PolicyOptimizer:
         os.makedirs(self.optimizer_log_dir, exist_ok=True)
         for tl in range(trials):
             # optimization algorithm:  self.configs['optimopts']['optimizer']
-            # self.controller.randomize()
             logger.info(f"Starting optimization trial {tl+1}/{trials}...")
             self.randTensor = get_tensor(
                 data=torch.randn((self.n_trajectories, self.state_dim, self.horizon)),
@@ -147,9 +146,6 @@ class PolicyOptimizer:
                 loss, mean_error = self.opt_step_loss()
                 loss = -loss
                 loss.backward()
-                # plot_grad_flow_v2(self.controller.parameters())
-                # - params: {self.controller[0].weight},
-                # {self.controller[0].bias.cpu().detach.numpy()}
                 logger.info(
                     "Optimize Policy: Iter {}/{} - Loss: {:.3f}".format(
                         i + 1, maxiter, loss.item()
@@ -194,7 +190,7 @@ class PolicyOptimizer:
         # state = torch.cat(n_trajectories * [self.obs_torch[None, :]], dim=0)
         # state = torch.cat(self.obs_torch, dim=0)
         state = deepcopy(self.obs_torch)
-        u = self.controller.forward(state)
+        u = self.controller(state)
         rew = self.rew_exp_torch_batch_all(state[:, 0])
         logger.debug("starting trajectory realization...")
         t1 = time.perf_counter()
@@ -230,10 +226,10 @@ class PolicyOptimizer:
         self.time_reached = 1e4  # checkpoint for payload within acceptable limits
 
         # generate init/goal states
-        initial_state = self.generate_init_state(
-            is_det=self.is_deterministic_init, n_trajs=self.n_trajectories
+        initial_state = generate_init_state(
+            self=self, is_det=self.is_deterministic_init, n_trajs=self.n_trajectories
         )
-        self.target_state = self.generate_goal(is_det=self.is_deterministic_goal)
+        self.target_state = generate_goal(self=self, is_det=self.is_deterministic_goal)
         # if self.normalize_target:
         #     self.target_state = np.divide(
         #         self.target_state - self.mean_states, self.std_states
@@ -253,63 +249,6 @@ class PolicyOptimizer:
         )
         # logger.info(f"observation type: {type(self.obs_torch)}")
         return self.obs_torch
-
-    def generate_init_state(self, is_det, n_trajs):
-        # in deterministic, default values are already in config
-        if not is_det:
-            # initial state distribution
-            if self.initial_distr == "full":  # non-colliding with obstacle
-                init_state = get_tensor(
-                    np.random.uniform(
-                        self.x_lb[0 : self.state_dim],
-                        self.x_ub[0 : self.state_dim],
-                        size=(n_trajs, self.state_dim),
-                    ),
-                    device=self.device,
-                    dtype=self.dtype,
-                )
-
-            # elif self.initial_distr == "constrained":
-            #     init_state = np.random.uniform(
-            #         self.x_lb + self.angle_goal_offset,
-            #         self.x_ub - self.angle_goal_offset,
-            #     )
-            #
-            # elif self.initial_distr == "grid":
-            #     return (
-            #         self.Rinit,
-            #         self.Sinit,
-            #     )  # pass and let the MC plotter handle initial states
-            else:
-                raise NotImplementedError()
-            return get_tensor(data=init_state, device=self.device, dtype=self.dtype)
-        else:
-            return get_tensor(
-                data=np.array(n_trajs * [self.init_state]),
-                device=self.device,
-                dtype=self.dtype,
-            )
-
-    def generate_goal(self, is_det):
-        # in deterministic, default values are already in config
-        if not is_det:
-            if self.goal_distr == "full":
-                goal_state = np.random.uniform(
-                    self.x_lb[0 : self.state_dim],
-                    self.x_ub[0 : self.state_dim],
-                    size=self.state_dim,
-                )
-
-            elif self.goal_distr == "constrained-safe":  # safe means far from bounds
-                goal_state = np.random.uniform(
-                    self.x_lb + self.angle_goal_offset,
-                    self.x_ub - self.angle_goal_offset,
-                )
-            else:
-                raise NotImplementedError()
-            return goal_state
-        else:
-            return self.target_state
 
     def rew_exp_torch_batch_all(self, x):
         # returns sum of all rewards over all horizon over all trajs
@@ -340,7 +279,7 @@ class PolicyOptimizer:
         )
         # initial state+u and concat
         # state = deepcopy(self.obs_torch)
-        state = self.generate_init_state(is_det=True, n_trajs=self.n_trajectories)
+        state = generate_init_state(self=self, is_det=True, n_trajs=self.n_trajectories)
         self.randTensor = get_tensor(
             torch.randn((self.n_trajectories, self.state_dim, self.horizon)),
             device=self.device,
@@ -351,13 +290,15 @@ class PolicyOptimizer:
         logger.info("Starting Monte Carlo trajectory realization...")
         t1 = time.perf_counter()
         target_tensor = get_tensor(
-            data=self.generate_goal(is_det=True), device=self.device, dtype=self.dtype
+            data=generate_goal(self=self, is_det=True),
+            device=self.device,
+            dtype=self.dtype,
         )
 
         for k in range(self.horizon - 1):
             with torch.no_grad():
                 # get u:  state -> controller -> u
-                M[:, -1, k] = controller.forward(M[:, :-1, k] - target_tensor)[:, 0]
+                M[:, -1, k] = controller(M[:, :-1, k] - target_tensor)[:, 0]
                 # predict next state: s_{t+1} = GP(s,u)
                 predictions = gp_model.predict(M[:, :, k])
             randtensor = (
@@ -390,12 +331,14 @@ class PolicyOptimizer:
         # initial state+u and concat
         # state = torch.cat(n_trajectories * [self.obs_torch[None, :]], dim=0)
         # state = torch.cat(self.obs_torch, dim=0)
-        state = self.generate_init_state(is_det=True, n_trajs=n_trajectories)
+        state = generate_init_state(self=self, is_det=True, n_trajs=n_trajectories)
 
         # assign data to M, memory := sys.getsizeof(M.storage())
         M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
         target_tensor = get_tensor(
-            data=self.generate_goal(is_det=True), device=self.device, dtype=self.dtype
+            data=generate_goal(self=self, is_det=True),
+            device=self.device,
+            dtype=self.dtype,
         )
         logger.info("Starting mean trajectory realization...")
         t1 = time.perf_counter()
@@ -426,7 +369,7 @@ class PolicyOptimizer:
             dtype=self.dtype,
         )
         # initial state+u and concat
-        state = self.generate_init_state(is_det=False, n_trajs=n_trajs_sim)
+        state = generate_init_state(self=self, is_det=False, n_trajs=n_trajs_sim)
         self.randTensor = get_tensor(
             torch.randn((n_trajs_sim, self.state_dim, self.horizon)),
             device=self.device,
@@ -441,7 +384,7 @@ class PolicyOptimizer:
         for k in range(self.horizon - 1):
             with torch.no_grad():
                 # get u:  state -> controller -> u
-                M[:, -1, k] = controller.forward(M[:, :-1, k])[:, 0]
+                M[:, -1, k] = controller(M[:, :-1, k])[:, 0]
                 # predict next state: s_{t+1} = GP(s,u)
                 predictions = gp_model.predict(M[:, :, k])
             px = predictions.mean

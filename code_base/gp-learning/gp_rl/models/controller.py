@@ -1,7 +1,7 @@
 from loguru import logger
 import torch
 
-from utils.miscellaneous import set_device, set_device_cpu
+from utils.torch_utils import set_device, set_device_cpu
 
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)

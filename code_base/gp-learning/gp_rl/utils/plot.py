@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import matplotlib.lines as line
-from utils.miscellaneous import get_tensor
+from utils.torch_utils import get_tensor
 
 
 def make_2D_normalized_grid(xlb, xub, n_x=30, n_y=30):

@@ -56,7 +56,8 @@ def main(opts):
     }
     policy_optimizer = PolicyOptimizer(**config)
     policy_optimizer.optimize_policy()
-    policy_optimizer.MC_oneSweep()
+    if opts.plot_mc:
+        policy_optimizer.MC_oneSweep()
 
 
 if __name__ == "__main__":
@@ -84,6 +85,7 @@ if __name__ == "__main__":
     parser.add_argument("--nondet-goal", action="store_true", help="Activate non-deterministic target for controller training") # noqa
     parser.add_argument("--goal-distr", default="full", help="distribution of generated nondeterministic goal") # noqa
     parser.add_argument("--verbose", default="DEBUG", help="logging verbosity (DEBUG, INFO, WARNING, ERROR)") # noqa
+    parser.add_argument("--plot-mc", action="store_true", help="Plot MC at the end for visualization") # noqa
     # fmt: on
     opts = parser.parse_args()
     logger.remove()

@@ -48,10 +48,25 @@ def main(opts):
     gpmodel = GPModel(**get_gp_train_config())
     gpmodel.initialize_model(
         path_model="./results/gp/GPmodel.pkl",
-        path_train_data="../data/boom_trial_6_10hz.pkl",
-        force_train=opts.force_train_gp,
+        # uncomment the lines below for retraining
+        # path_train_data="../data/boom_trial_6_10hz.pkl",
+        # force_train=opts.force_train_gp,
     )
-    # ========TEST GP_MODEL========== #
+    # =====RUN GP MODEL FOR 1 INSTANCE========#
+    logger.info("=====SINGLE INSTANCE GP PREDICTION====")
+    X_sample = [0.5, -1]
+    X_sample_tensor = get_tensor(X_sample).reshape(1, 2)
+    pred = gpmodel.predict(X_sample_tensor)
+    logger.info(f"Sample initial position: {X_sample}")
+    logger.info(f"Single Instance GP model prediction (mean dx): {pred.mean.item()}")
+    logger.info(
+        "Next position with GP prediction: {}".format(
+            (X_sample_tensor[0, 0] + pred.mean).item()
+        )
+    )
+    logger.info("=====END SINGLE INSTANCE GP PREDICTION====\n\n")
+
+    # ========TEST GP_MODEL OVER TEST SET====== #
     if opts.visualize_gp:
         plot_gp(gpmodel, test_data="../data/boom_trial_1_10hz.pkl", num_states=2)
     logger.info("GP model loaded")
@@ -67,28 +82,35 @@ def main(opts):
     dt = opts.dt
     init_state = np.array(opts.init_state)
     target_state = get_tensor(np.array(opts.target_state))
-    # ======SINGLE INSTANCE EXAMPLE========#
+    # ======SINGLE INSTANCE CONTROLLER EXAMPLE========#
     # M_instace is tensor with size
     # [1 (1 trajectory), input_size (states+control), 1+1 (first one is init )]
     # Set tf=None (default) for single instance, dt as sampling time
     # calc_realization_mean retunrs mean prediction, for predictions that also includes
     # uncertainty, use calc_realization
-    M_instance = calc_realization_mean(
-        gp_model=gpmodel,
-        controller=controller,
-        state_dim=state_dim,
-        control_dim=control_dim,
-        dt=dt,
-        init_state=init_state,
-        target_state=target_state,
-    ).cpu().numpy()
+    logger.info("=====SINGLE INSTANCE CONTROLLER PREDICTION====")
+    M_instance = (
+        calc_realization_mean(
+            gp_model=gpmodel,
+            controller=controller,
+            state_dim=state_dim,
+            control_dim=control_dim,
+            dt=dt,
+            init_state=init_state,
+            target_state=target_state,
+        )
+        .cpu()
+        .numpy()
+    )
     logger.info(f"Single instance input: {M_instance[:, -1, 0]}")
     logger.info(f"Single instance state (positional error): {M_instance[:, 0, 1]}")
+    logger.info("=====END SINGLE INSTANCE CONTROLLER PREDICTION====\n\n")
 
     # =======RUN MODEL+CONTROLLER OVER TF=======#
     # M_mean is tensor with size
     # [1 (1 trajectory), input_size (states+control), 1+1 (first one is init )]
     # Set dt as sampling time, tf as time to run simulation
+    logger.info("=====CONTROLLER PREDICTION OVER TF====")
     M_mean = (
         calc_realization_mean(
             gp_model=gpmodel,
@@ -104,6 +126,7 @@ def main(opts):
         .numpy()
     )
     plot_response(M_mean, dt)
+    logger.info("=====END CONTROLLER PREDICTION OVER TF====\n\n")
 
 
 if __name__ == "__main__":

@@ -300,7 +300,8 @@ class PolicyOptimizer:
                 n_trajectories=self.n_trajectories,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                horizon=self.horizon,
+                tf=self.Tf,
+                dt=self.dt,
                 init_state=self.init_state,
                 target_state=self.target_state,
             )
@@ -314,7 +315,8 @@ class PolicyOptimizer:
                 controller=controller,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                horizon=self.horizon,
+                tf=self.Tf,
+                dt=self.dt,
                 init_state=self.init_state,
                 target_state=self.target_state,
             )
@@ -339,7 +341,8 @@ class PolicyOptimizer:
                 controller=controller,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                horizon=self.horizon,
+                tf=self.Tf,
+                dt=self.dt,
                 init_state=self.init_state,
                 target_state=self.target_state,
             )

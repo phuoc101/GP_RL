@@ -73,15 +73,20 @@ def calc_realizations(
     n_trajectories,
     state_dim,
     control_dim,
-    horizon,
+    dt,
     init_state,
     target_state,
+    tf=None,
     device=DEFAULT_DEVICE,
     dtype=DEFAULT_DTYPE,
 ):
     # initialize big tensor, keeping track of all variables
+    if tf is None:
+        horizon = 1
+    else:
+        horizon = round(tf / dt)
     M = get_tensor(
-        torch.zeros((n_trajectories, state_dim + control_dim, horizon)),
+        torch.zeros((n_trajectories, state_dim + control_dim, horizon + 1)),
         device=device,
         dtype=dtype,
     )
@@ -94,21 +99,23 @@ def calc_realizations(
     M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
     logger.info("Starting Monte Carlo trajectory realization...")
     t1 = time.perf_counter()
-    target_tensor = get_tensor(
-        data=generate_goal(is_det=True, default_target_state=target_state),
-        device=device,
-        dtype=dtype,
-    )
+    # convert target state to tensor if not alr is
+    if not isinstance(target_state, torch.Tensor):
+        target_state = get_tensor(
+            data=generate_goal(is_det=True, default_target_state=target_state),
+            device=device,
+            dtype=dtype,
+        )
     rand_tensor = get_tensor(
-        data=torch.randn((n_trajectories, state_dim, horizon)),
+        data=torch.randn((n_trajectories, state_dim, horizon + 1)),
         device=device,
         dtype=dtype,
     )
 
-    for k in range(horizon - 1):
+    for k in range(1, horizon + 1):
         with torch.no_grad():
             # get u:  state -> controller -> u
-            M[:, -1, k] = controller(M[:, :-1, k] - target_tensor)[:, 0]
+            M[:, -1, k] = controller(M[:, :-1, k] - target_state)[:, 0]
             # predict next state: s_{t+1} = GP(s,u)
             predictions = gp_model.predict(M[:, :, k])
         randtensor = predictions.mean + predictions.stddev * rand_tensor[:, :, k]
@@ -126,44 +133,49 @@ def calc_realization_mean(
     controller,
     state_dim,
     control_dim,
-    horizon,
+    dt,
     init_state,
     target_state,
+    tf=None,
     device=DEFAULT_DEVICE,
     dtype=DEFAULT_DTYPE,
-):  # mean of GP predictions, no sampling
+):
+    # mean of GP predictions, no sampling
+    if tf is None:
+        horizon = 1
+    else:
+        horizon = round(tf / dt)
     n_trajectories = 1  # number of (parallel) trajectories
     # initialize big tensor, keeping track of all variables
     M = get_tensor(
-        data=torch.zeros((n_trajectories, state_dim + control_dim, horizon)),
+        data=torch.zeros((n_trajectories, state_dim + control_dim, horizon + 1)),
         device=device,
         dtype=dtype,
     )
-    # initial state+u and concat
-    # state = torch.cat(n_trajectories * [obs_torch[None, :]], dim=0)
-    # state = torch.cat(obs_torch, dim=0)
     state = generate_init_state(
         is_det=True, n_trajs=n_trajectories, default_init_state=init_state
     )
 
     # assign data to M, memory := sys.getsizeof(M.storage())
     M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-    target_tensor = get_tensor(
-        data=generate_goal(is_det=True, default_target_state=target_state),
-        device=device,
-        dtype=dtype,
-    )
+    # convert target state to tensor if not alr is
+    if not isinstance(target_state, torch.Tensor):
+        target_state = get_tensor(
+            data=generate_goal(is_det=True, default_target_state=target_state),
+            device=device,
+            dtype=dtype,
+        )
     logger.info("Starting mean trajectory realization...")
     t1 = time.perf_counter()
-    for k in range(horizon - 1):
+    for k in range(1, horizon + 1):
         # get u:  state -> controller -> u
         with torch.no_grad():
-            M[:, -1, k] = controller(M[:, :-1, k] - target_tensor)[:, 0]
+            M[:, -1, k - 1] = controller(M[:, :-1, k - 1] - target_state)[:, 0]
             # predict next state: s_{t+1} = GP(s,u)
-            predictions = gp_model.predict(M[:, :, k])
+            predictions = gp_model.predict(M[:, :, k - 1])
         px = predictions.mean
         # predict next state
-        M[:, :-1, k + 1] = M[:, :-1, k] + px
+        M[:, :-1, k] = M[:, :-1, k - 1] + px
     t_elapsed = time.perf_counter() - t1
     logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
     return M
@@ -175,15 +187,20 @@ def calc_realizations_non_det_init(
     controller,
     state_dim,
     control_dim,
-    horizon,
+    dt,
     init_state,
     target_state,
+    tf=None,
     device=DEFAULT_DEVICE,
     dtype=DEFAULT_DTYPE,
 ):
+    if tf is None:
+        horizon = 1
+    else:
+        horizon = round(tf / dt)
     # initialize big tensor, keeping track of all variables
     M = get_tensor(
-        torch.zeros((n_trajs_sim, state_dim + control_dim, horizon)),
+        torch.zeros((n_trajs_sim, state_dim + control_dim, horizon + 1)),
         device=device,
         dtype=dtype,
     )
@@ -193,19 +210,21 @@ def calc_realizations_non_det_init(
     )
     # assign data to M, memory := sys.getsizeof(M.storage())
     M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-    target_tensor = get_tensor(
-        data=generate_goal(is_det=True, default_target_state=target_state),
-        device=device,
-        dtype=dtype,
-    )
+    # convert target state to tensor if not alr is
+    if not isinstance(target_state, torch.Tensor):
+        target_state = get_tensor(
+            data=generate_goal(is_det=True, default_target_state=target_state),
+            device=device,
+            dtype=dtype,
+        )
     logger.info(
         "Starting trajectory realization with non-deterministic initialization..."
     )
     t1 = time.perf_counter()
-    for k in range(horizon - 1):
+    for k in range(1, horizon + 1):
         with torch.no_grad():
             # get u:  state -> controller -> u
-            M[:, -1, k] = controller(M[:, :-1, k] - target_tensor)[:, 0]
+            M[:, -1, k] = controller(M[:, :-1, k] - target_state)[:, 0]
             # predict next state: s_{t+1} = GP(s,u)
             predictions = gp_model.predict(M[:, :, k])
         px = predictions.mean
@@ -214,5 +233,4 @@ def calc_realizations_non_det_init(
 
     t_elapsed = time.perf_counter() - t1
     logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
-    # logger.debug(f"size of randomTensor is {randtensor.shape}")
     return M

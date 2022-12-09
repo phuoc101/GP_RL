@@ -63,7 +63,9 @@ def main(opts):
     policy_optimizer = PolicyOptimizer(**config)
     policy_optimizer.optimize_policy()
     if opts.plot_mc:
-        policy_optimizer.MC_oneSweep()
+        policy_optimizer.MC_oneSweep(
+            controller=policy_optimizer.controller, gp_model=policy_optimizer.gp_model
+        )
 
 
 if __name__ == "__main__":
@@ -84,7 +86,7 @@ if __name__ == "__main__":
     parser.add_argument("--control-dim", type=int, default=1, help="Action space dimension") # noqa
     parser.add_argument("--gpmodel", default="./results/gp/GPmodel.pkl", help="Pretrained GP model") # noqa
     parser.add_argument("--optimizer", default="Adam", help="Optimizer type") # noqa
-    parser.add_argument("--init-state", default=[-1], nargs="+", type=int, help="Initial state") # noqa
+    parser.add_argument("--init-state", default=[-0.5], nargs="+", type=int, help="Initial state") # noqa
     parser.add_argument("--nondet-init", action="store_true", help="Activate non-deterministic initialization for controller training") # noqa
     parser.add_argument("--initial-distr", default="full", help="distribution of initial position") # noqa
     parser.add_argument("--target-state", default=[0], nargs="+", type=int, help="Initial state") # noqa

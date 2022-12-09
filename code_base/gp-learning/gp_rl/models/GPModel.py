@@ -6,7 +6,7 @@ import torch
 
 from models.BatchIndependentMultitaskGPModel import BatchIndependentMultitaskGPModel
 from loguru import logger
-from utils.data_loading import load_training_data, load_test_data, load_data, save_data
+from utils.data_loading import load_training_data, load_data, save_data
 from utils.torch_utils import set_device_cpu, set_device
 
 float_type = torch.float32
@@ -34,7 +34,6 @@ class GPModel:
         if not os.path.isfile(path_model) or force_train:
             # initialize models, train, save
             # load train data
-            print(path_train_data)
             if path_train_data is not None:
                 (
                     self.X_train,

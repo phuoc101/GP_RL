@@ -41,6 +41,13 @@ from pathlib import Path
 from gazebo_control_interface import configs, GPModel
 from rclpy.time import Time
 
+
+from .control_utils.gp_rl.cfg.configs import get_gp_train_config
+from .control_utils.gp_rl.models.GPModel import GPModel
+from .control_utils.gp_rl.utils.data_loading import load_data
+from .control_utils.gp_rl.utils.torch_utils import to_gpu, get_tensor
+from .control_utils.gp_rl.utils.rl_utils import calc_realization_mean
+
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
@@ -75,15 +82,16 @@ class SteeringActionClient(Node):
 
     def __init__(self, opts):
         super().__init__("gazebo_joint_controller")
-        
-        self.opts = opts
-        self.model = self.init_model()
+
+        self.state_dim = 0
+        self.control_dim = 0
+
+        self.model = self.init_model(opts)
+        self.controller = self.init_controller(opts)
         # action client is responsible for sending goals to the 
         # joint_trajectory_controller which executes the joint command to the simulator model
 
         #prediction_model = run_model_single_input()
-
-        self.action_client_ = ActionClient(self, FollowJointTrajectory, '/joint_trajectory_controller/follow_joint_trajectory') 
 
         self.speed_publisher = self.create_publisher(Float64MultiArray, "motion_controller/commands", 10)
         self.manipulator_speed_publisher = self.create_publisher(Float64MultiArray, "/manipulator_controller/commands", 10)
@@ -150,21 +158,39 @@ class SteeringActionClient(Node):
         self.prev_vel = 0.0
         self.prev_command = 0.0
 
-    def init_model(self): 
+    def init_model(self, opts): 
         """
-        initialize gp model
+        initialize gp model 
         """
-        config = configs.get_train_config()
-        config = {**config, "GP_training_iter": self.opts.gp_train_iter, "verbose": self.opts.verbose, "force_train": False}
-        model = GPModel.GPModel(**config)
-        model.initialize_model(
-            path_model=self.opts.gpmodel,
-            path_train_data=self.opts.train, # train model on the fly
+        self.state_dim = opts.state_dim
+        self.control_dim = opts.control_dim
+        gpmodel = GPModel(**get_gp_train_config())
+        gpmodel.initialize_model(
+        path_model="/home/teemu/results/gp/GPmodel.pkl",
+        # uncomment the lines below for retraining
+         path_train_data="/home/teemu/data/boom_trial_6_10hz.pkl",
+         force_train=opts.force_train_gp,
         )
-       # pred_mean *= self.opts.sampling_time_ratio
 
-        return model
+        return gpmodel
 
+    def init_controller(self, opts):
+        controller_data = load_data("./results/controller/_all.pkl")
+        controller = self.get_best_controller(controller_data)
+        to_gpu(controller)
+        logger.info("controller model loaded")
+
+
+    def get_best_controller(controller_data):
+        """
+        chooses the controller with lowest loss
+        """
+
+        losses = []
+        for controller in controller_data["all_optimizer_data"]:
+            losses.append(controller["optimInfo"]["loss"][-1])
+        best_controller_data = controller_data["all_optimizer_data"][np.argmin(losses)]
+        return best_controller_data["controller_final"]
 
     def update_joints(self):
         """
@@ -196,43 +222,6 @@ class SteeringActionClient(Node):
 
             self.prev_msg = goal_data.positions
 
-    def goal_response_callback(self, future):
-        """
-        Receives the status of the actions server and tells the user if the goal plan has been accepted
-
-        args:
-            future (ros2 actions state): State of the server
-        """
-
-        goal_handle = future.result()
-        if not goal_handle.accepted:
-            self.get_logger().info('New state goal got rejected by the server')
-            return
-
-        self.get_logger().info('New state goal accepted by the server')
-
-        self._get_result_future = goal_handle.get_result_async()
-        self._get_result_future.add_done_callback(self.get_result_callback)
-    
-    def get_result_callback(self, future):
-        """
-        Gets the results from the action server
-
-        args:
-            future (ros2 actions state): State of the server
-        """
-        result = future.result().result
-        self.get_logger().info('Result: '+str(result))
-
-    def feedback_callback(self, feedback_msg):
-        """
-        Provides the feedback on the server status
-
-        args:
-            feedback_msg (feedback state): message containing the feedback data
-        """
-        feedback = feedback_msg.feedback
-        self.get_logger().info('Received feedback:'+str(feedback))
 
     def command_callback(self, msg):
         """
@@ -406,49 +395,49 @@ class SteeringActionClient(Node):
         self.logger += 1
 
 
-def main(args=None):
-    logger.remove()
-    logger.add(sys.stderr, level="DEBUG")
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-gp",
-        "--gpmodel",
-        type=str,
-        default="../results/GPmodel.pkl",
-        help="Path to training data",
-    )
+    def wanted_pos_callback(self, msg):
+        """
+        moves the robot boom manipulator to the wanted state according to the given command
 
-    parser.add_argument(
-        "--gp-train-iter",
-        type=int,
-        default=500,
-        help="Maximum train iterations for GP model",
-    )
-    parser.add_argument(
-        "-v,",
-        "--verbose",
-        type=int,
-        default=1,
-        help="Path to test data",
-    )
-    parser.add_argument(
-        "--train",
-        type=str,
-        default=dir_path / "../data/avant_TrainingData.pkl",
-        help="Path to training data",
-    )
-    parser.add_argument(
-        "--test",
-        type=str,
-        default=dir_path / "../data/avant_TestData.pkl",
-        help="Path to test data",
-    )
-    parser.add_argument(
-        "--force-train",
-        action="store_false",
-        help="Force retraining",
-    )
+        args:
+            msg Jointstate: pos [1]
+        """
+
+        init_state = np.array(self.boom_pose[BOOM])
+        target_state = get_tensor(np.array(msg.position[BOOM]))
+        X_sample_tensor = get_tensor([self.boom_pose, self.boom_vel]).reshape(1, 2)
+        pred = self.model.predict(X_sample_tensor)
+
+        M_instance = (
+        calc_realization_mean(
+            gp_model=self.model,
+            controller=self.controller,
+            state_dim=self.state_dim,
+            control_dim=self.control_dim,
+            dt=0.1,
+            init_state=init_state,
+            target_state=target_state,
+        )
+        .cpu()
+        .numpy()
+        )
+
+def main(args=None):
+    parser = argparse.ArgumentParser()
+    # fmt: off
+    parser.add_argument("--tf", default=25, type=float, help="Time to run simulation")  # noqa
+    parser.add_argument("--dt", default=0.1, type=float, help="Sampling time")  # noqa
+    parser.add_argument("--state-dim", default=1, type=int, help="Number of observed states")  # noqa
+    parser.add_argument("--control-dim", default=1, type=int, help="Number of controlled states")  # noqa
+    parser.add_argument("--init-state", nargs="+", default=[-1], help="Define initial state (based on state-dim)")  # noqa
+    parser.add_argument("--target-state", nargs="+", default=[0], help="Define goal state (based on state-dim)")  # noqa
+    parser.add_argument("--visualize-gp", action="store_true", help="Visualize GP")  # noqa
+    parser.add_argument("--force-train-gp", action="store_true", help="Force train GP Model again")  # noqa
+    parser.add_argument("--verbose", default="DEBUG", type=str, help="Verbosity level (INFO, DEBUG, WARNING, ERROR)")  # noqa
+    # fmt: on
     opts = parser.parse_args()
+    logger.remove()
+    logger.add(sys.stderr, level=opts.verbose)
     rclpy.init()
     # Turn on the ROS2 node and make it run in the loop
     action_client = SteeringActionClient(opts)

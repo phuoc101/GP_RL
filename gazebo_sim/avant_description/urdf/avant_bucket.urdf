@@ -337,7 +337,7 @@
       </geometry>
     </collision>
 
-    <xacro:box_inertia m="5" w="0.4" h="0.4" d="0.4"/> 
+    <xacro:box_inertia m="1" w="0.4" h="0.4" d="0.4"/> 
     <!-- original <xacro:box_inertia m="1" w="0.2" h="0.2" d="0.2"/> -->
   </link>
 
@@ -382,7 +382,7 @@
       </geometry>
     </collision>
 
-   <xacro:box_inertia m="2.0" w="0.5" h="0.5" d="0.5"/>
+   <xacro:box_inertia m="1.0" w="0.5" h="0.5" d="0.5"/>
    <!--  original  <xacro:box_inertia m="2" w="0.5" h="0.5" d="0.5"/>-->
   </link>
   
@@ -1830,25 +1830,25 @@
           <x>
             <noise type="gaussian">
               <mean>0.0</mean>
-              <stddev>2e-4</stddev> 
-              <bias_mean>0.0000075</bias_mean> 
-              <bias_stddev>0.0000008</bias_stddev> 
+              <stddev>0.0</stddev> 
+              <bias_mean>0.00000</bias_mean> 
+              <bias_stddev>0.000000</bias_stddev> 
             </noise>
           </x>
           <y>
             <noise type="gaussian">
               <mean>0.0</mean>
-              <stddev>2e-4</stddev>  <!---->
-              <bias_mean>0.0000075</bias_mean>  <!---->
-              <bias_stddev>0.0000008</bias_stddev>  <!---->
+              <stddev>0.0</stddev>  <!---->
+              <bias_mean>0.0000000</bias_mean>  <!---->
+              <bias_stddev>0.000000</bias_stddev>  <!---->
             </noise>
           </y>
           <z>
             <noise type="gaussian">
               <mean>0.0</mean>
-              <stddev>2e-4</stddev>  <!---->
-              <bias_mean>0.0000075</bias_mean>  <!---->
-              <bias_stddev>0.0000008</bias_stddev>  <!---->
+              <stddev>0.0</stddev>  <!---->
+              <bias_mean>0.000000</bias_mean>  <!---->
+              <bias_stddev>0.000000</bias_stddev>  <!---->
             </noise>
           </z>
         </angular_velocity>
@@ -1856,25 +1856,25 @@
           <x>
             <noise type="gaussian">
               <mean>0.0</mean>
-              <stddev>2e-4</stddev>  <!---->
-              <bias_mean>0.0000075</bias_mean>  <!---->
-              <bias_stddev>0.0000008</bias_stddev>  <!---->
+              <stddev>0.0</stddev>  <!---->
+              <bias_mean>0.000000</bias_mean>  <!---->
+              <bias_stddev>0.000000</bias_stddev>  <!---->
             </noise>
           </x>
           <y>
             <noise type="gaussian">
               <mean>0.0</mean>
-              <stddev>2e-4</stddev>  <!---->
-              <bias_mean>0.0000075</bias_mean>  <!---->
-              <bias_stddev>0.0000008</bias_stddev>  <!---->
+              <stddev>0.0</stddev>  <!---->
+              <bias_mean>0.0000000</bias_mean>  <!---->
+              <bias_stddev>0.0000000</bias_stddev>  <!---->
             </noise>
           </y>
           <z>
             <noise type="gaussian">
               <mean>0.0</mean>
-              <stddev>2e-4</stddev>  <!---->
-              <bias_mean>0.0000075</bias_mean>  <!---->
-              <bias_stddev>0.0000008</bias_stddev>  <!---->
+              <stddev>0.0</stddev>  <!---->
+              <bias_mean>0.0000000</bias_mean>  <!---->
+              <bias_stddev>0.000000</bias_stddev>  <!---->
             </noise>
           </z>
         </linear_acceleration>

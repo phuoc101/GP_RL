@@ -102,7 +102,7 @@ class SteeringActionClient(Node):
         self.joint_state_sub = self.create_subscription(JointState, "joint_states", self.state_callback, 10)
         self.command_sub_ = self.create_subscription(JointState, "motion_commands", self.command_callback, 10)
         self.manipulator_vel_sub = self.create_subscription(JointState, "manipulator_commands", self.manipulator_callback, 10)
-        
+        self.joint_state_sub = self.create_subscription(JointState, "/boom_pose", self.wanted_pos_callback, 10)
         self.prev_pose = None
         self.prev_time = None
         self.logger = 0
@@ -158,6 +158,8 @@ class SteeringActionClient(Node):
         self.prev_vel = 0.0
         self.prev_command = 0.0
 
+        self.prev_time = None
+
     def init_model(self, opts): 
         """
         initialize gp model 
@@ -175,13 +177,14 @@ class SteeringActionClient(Node):
         return gpmodel
 
     def init_controller(self, opts):
-        controller_data = load_data("./results/controller/_all.pkl")
+        controller_data = load_data("/home/teemu/results/controller/_all.pkl")
         controller = self.get_best_controller(controller_data)
         to_gpu(controller)
         logger.info("controller model loaded")
+        return controller
 
 
-    def get_best_controller(controller_data):
+    def get_best_controller(self, controller_data):
         """
         chooses the controller with lowest loss
         """
@@ -403,24 +406,51 @@ class SteeringActionClient(Node):
             msg Jointstate: pos [1]
         """
 
-        init_state = np.array(self.boom_pose[BOOM])
-        target_state = get_tensor(np.array(msg.position[BOOM]))
-        X_sample_tensor = get_tensor([self.boom_pose, self.boom_vel]).reshape(1, 2)
-        pred = self.model.predict(X_sample_tensor)
+        if (self.prev_time == None):
+            print("time error")
+            self.prev_time = Time.from_msg(self.get_clock().now().to_msg()).nanoseconds / 1e9
+        
+        else:
+            print((self.boom_pose - msg.position[BOOM]) )
 
-        M_instance = (
-        calc_realization_mean(
-            gp_model=self.model,
-            controller=self.controller,
-            state_dim=self.state_dim,
-            control_dim=self.control_dim,
-            dt=0.1,
-            init_state=init_state,
-            target_state=target_state,
-        )
-        .cpu()
-        .numpy()
-        )
+            init_state = np.array(self.boom_pose)
+            target_state = get_tensor(np.array(msg.position[BOOM]))
+
+            M_instance = (
+            calc_realization_mean(
+                gp_model=self.model,
+                controller=self.controller,
+                state_dim=self.state_dim,
+                control_dim=self.control_dim,
+                dt=0.1,
+                init_state=init_state,
+                target_state=target_state,
+            )
+            .cpu()
+            .numpy()
+            )
+
+            time = Time.from_msg(self.get_clock().now().to_msg()).nanoseconds / 1e9
+
+            vel = (M_instance[:, 0, 1]/ (time - self.prev_time)) * 8# (8 / 10)
+
+            self.get_logger().info("estimated vel according to controller is: {}".format(vel))
+
+            self.prev_time = time
+            logger.info(vel[0].item())
+            msg_out = Float64MultiArray()
+            msg_out.data = [M_instance[:, -1, 0].item(), 0.0, 0.0]
+            self.manipulator_speed_publisher.publish(msg_out)
+
+            self.msg_out.position[0] = (self.boom_pose)
+            self.msg_out.position[1] = msg.position[BOOM]
+            self.msg_out.velocity[0] = self.boom_vel
+            self.msg_out.velocity[1] = M_instance[:, -1, 0].item()
+
+            self.state_publisher.publish(self.msg_out)
+
+            
+
 
 def main(args=None):
     parser = argparse.ArgumentParser()

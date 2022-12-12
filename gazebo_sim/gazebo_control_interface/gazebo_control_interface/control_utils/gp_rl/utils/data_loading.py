@@ -6,6 +6,7 @@ import torch
 
 def load_data(file):
     with open(file, "rb") as f:
+        print(file)
         return pickle.load(f)
 
 

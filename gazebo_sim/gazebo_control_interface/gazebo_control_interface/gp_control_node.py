@@ -40,7 +40,7 @@ from sensor_msgs.msg import JointState
 from pathlib import Path
 from gazebo_control_interface import configs, GPModel
 from rclpy.time import Time
-
+from control_msgs.msg import DynamicJointState
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
@@ -92,6 +92,8 @@ class SteeringActionClient(Node):
         self.telescope_pub_ = self.create_publisher(JointState, "telescope", 10)
 
         self.joint_state_sub = self.create_subscription(JointState, "joint_states", self.state_callback, 10)
+
+        self.joint_state_sub = self.create_subscription(DynamicJointState, "dynamic_joint_states", self.dynamic_state_callback, 10)
         self.command_sub_ = self.create_subscription(JointState, "motion_commands", self.command_callback, 10)
         self.manipulator_vel_sub = self.create_subscription(JointState, "manipulator_commands", self.manipulator_callback, 10)
         
@@ -258,6 +260,15 @@ class SteeringActionClient(Node):
 
         self.publish_vel(self.gas, steer, gear)
 
+    def dynamic_state_callback(self, msg):
+       for i in range(len(msg.joint_names)):
+        if (msg.joint_names[i] == "boom_angle"):
+            #self.boom_pose = msg.interface_values[i].values[1]
+            #self.boom_vel = msg.interface_values[i].values[2]
+            self.boom_pose = 0.1
+            self.boom_vel = 0.1
+
+
     def state_callback(self, msg):
         """
         Reads the joint_state message and parses from there the same
@@ -290,13 +301,14 @@ class SteeringActionClient(Node):
                 self.telescope_pose = msg.position[i]
                 self.telescope_pub_.publish(telescope_msg)
 
-            if name == "boom_angle":
-                self.boom_pose = msg.position[i]
-                if (self.prev_pose != None and self.prev_time != None):           
-                    self.boom_vel = (self.boom_pose - self.prev_pose) / ((Time.from_msg(msg.header.stamp).nanoseconds  / 1e9) - self.prev_time) * 10 #msg.velocity[i] * 10# scale the vel to match given vel   
-                self.prev_pose = self.boom_pose
-                self.prev_time = Time.from_msg(msg.header.stamp).nanoseconds  / 1e9
-                #self.boom_vel = msg.velocity[i] * 10# scale the vel to match given vel
+            #if name == "boom_angle":
+            #    #self.boom_pose = msg.position[i]
+            #    if (self.prev_pose != None and self.prev_time != None):           
+            #        self.boom_vel = (self.boom_pose - self.prev_pose) / ((Time.from_msg(msg.header.stamp).nanoseconds  / 1e9) - self.prev_time) #msg.velocity[i] * 10# scale the vel to match given vel 
+            #        #self.boom_vel = 0.1
+            #    self.prev_pose = self.boom_pose
+            #    self.prev_time = Time.from_msg(msg.header.stamp).nanoseconds  / 1e9
+            #    #self.boom_vel = msg.velocity[i] * 10# scale the vel to match given vel
 		
             if name == "fork_angle":
                 self.bucket_pose = msg.position[i]
@@ -352,6 +364,7 @@ class SteeringActionClient(Node):
         vel_boom = msg.velocity[BOOM] #* self.gain_boom
         vel_tel = msg.velocity[TELESCOPE]
         vel_bucket = msg.velocity[BUCKET] * self.gain_bucket
+
         command = torch.from_numpy(np.asarray([self.boom_pose, self.boom_vel, vel_boom])).float()
         
         model_input  = torch.reshape(command,(1,3))
@@ -393,14 +406,8 @@ class SteeringActionClient(Node):
         self.msg_out.velocity[1] = vel.item() 
 
         self.state_publisher.publish(self.msg_out)
-
-        if -0.2 <= vel.item() <= 0.2:
-            vel = 0.0
         
-        else:
-            vel = vel.item()
-        
-        msg_out.data = [vel, vel_tel, vel_bucket]
+        msg_out.data = [vel.item(), vel_tel, vel_bucket]
         
         self.manipulator_speed_publisher.publish(msg_out)
         self.logger += 1
@@ -414,7 +421,7 @@ def main(args=None):
         "-gp",
         "--gpmodel",
         type=str,
-        default="../results/GPmodel.pkl",
+        default="/home/teemu/results/gp_train_vel/GPmodel.pkl",
         help="Path to training data",
     )
 
@@ -434,13 +441,13 @@ def main(args=None):
     parser.add_argument(
         "--train",
         type=str,
-        default=dir_path / "../data/avant_TrainingData.pkl",
+        default=dir_path / "/home/teemu/data/avant_TrainingData.pkl",
         help="Path to training data",
     )
     parser.add_argument(
         "--test",
         type=str,
-        default=dir_path / "../data/avant_TestData.pkl",
+        default=dir_path / "/home/teemu/data/avant_TestData.pkl",
         help="Path to test data",
     )
     parser.add_argument(

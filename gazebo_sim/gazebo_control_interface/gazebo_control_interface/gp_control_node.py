@@ -28,8 +28,7 @@ velocity commands are at the moment set as group:
     - all joints mentioned for the controller receive the speed that is defined in the command
 """
 
-from math import atan
-from loguru import logger
+# ros utils
 from rclpy.duration import Duration
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -38,9 +37,10 @@ from trajectory_msgs.msg import JointTrajectoryPoint
 from std_msgs.msg import Float64MultiArray
 from sensor_msgs.msg import JointState
 from pathlib import Path
-from gazebo_control_interface import configs, GPModel
 from rclpy.time import Time
 from control_msgs.msg import DynamicJointState
+
+# other
 import matplotlib.pyplot as plt
 import torch
 import numpy as np
@@ -48,6 +48,12 @@ import rclpy
 import argparse
 import sys
 import os
+
+#pkg utils
+from math import atan
+from loguru import logger
+from .control_utils.gp_rl.cfg import configs
+from .control_utils.gp_rl.models.GPModel import GPModel
 # Constants for the system
 GEAR_MOVE = 1
 GEAR_FREE = 0
@@ -156,12 +162,13 @@ class SteeringActionClient(Node):
         """
         initialize gp model
         """
-        config = configs.get_train_config()
+        config = configs.get_gp_train_config()
         config = {**config, "GP_training_iter": self.opts.gp_train_iter, "verbose": self.opts.verbose, "force_train": False}
-        model = GPModel.GPModel(**config)
+        model = GPModel(**config)
         model.initialize_model(
+            path_train_data=self.opts.train,
             path_model=self.opts.gpmodel,
-            path_train_data=self.opts.train, # train model on the fly
+            force_train=False
         )
        # pred_mean *= self.opts.sampling_time_ratio
 
@@ -282,7 +289,7 @@ class SteeringActionClient(Node):
         resolver_msg = JointState()
         resolver_msg.header = msg.header
 
-        # Form message for the telescope lenght 
+        # Form message for the telescope lenght GPModel
         telescope_msg = JointState()
         telescope_msg.header = msg.header
 	
@@ -365,9 +372,9 @@ class SteeringActionClient(Node):
         vel_tel = msg.velocity[TELESCOPE]
         vel_bucket = msg.velocity[BUCKET] * self.gain_bucket
 
-        command = torch.from_numpy(np.asarray([self.boom_pose, self.boom_vel, vel_boom])).float()
+        command = torch.from_numpy(np.asarray([self.boom_pose, vel_boom])).float()
         
-        model_input  = torch.reshape(command,(1,3))
+        model_input  = torch.reshape(command,(1,2))
         model_input = model_input.to(self.model.device, self.model.dtype)
         boom_prediction = self.model.predict(model_input)
 
@@ -387,7 +394,7 @@ class SteeringActionClient(Node):
         time = Time.from_msg(msg.header.stamp).nanoseconds / 1e9
         #self.get_logger().info("prev time: {} \n".format(self.prev_est_time))
         #self.get_logger().info("time now : {} \n".format(time))
-        vel = (boom_prediction.mean[0][0]) / (time - self.prev_est_time) * 8 # (8 / 10)
+        vel = ((boom_prediction.mean[0][0]) / 0.1) * 8# (8 / 10)
     
         self.prev_est_time = time
         # Send velocity to the ros2 controller which will move the joints
@@ -421,7 +428,7 @@ def main(args=None):
         "-gp",
         "--gpmodel",
         type=str,
-        default="/home/teemu/results/gp_train_vel/GPmodel.pkl",
+        default="/home/teemu/results/gp/GPmodel.pkl",
         help="Path to training data",
     )
 
@@ -441,13 +448,13 @@ def main(args=None):
     parser.add_argument(
         "--train",
         type=str,
-        default=dir_path / "/home/teemu/data/avant_TrainingData.pkl",
+        default="/home/teemu/data/avant_TrainingData.pkl",
         help="Path to training data",
     )
     parser.add_argument(
         "--test",
         type=str,
-        default=dir_path / "/home/teemu/data/avant_TestData.pkl",
+        default="/home/teemu/data/avant_TestData.pkl",
         help="Path to test data",
     )
     parser.add_argument(

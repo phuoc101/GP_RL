@@ -344,9 +344,9 @@ class SteeringActionClient(Node):
         vel_boom = msg.velocity[BOOM] #* self.gain_boom
         vel_tel = msg.velocity[TELESCOPE]
         vel_bucket = msg.velocity[BUCKET] * self.gain_bucket
-        command = torch.from_numpy(np.asarray([self.boom_pose, self.boom_vel, vel_boom])).float()
+        command = torch.from_numpy(np.asarray([self.boom_pose, vel_boom])).float()
         
-        model_input  = torch.reshape(command,(1,3))
+        model_input  = torch.reshape(command,(1,2))
         model_input = model_input.to(self.model.device, self.model.dtype)
         boom_prediction = self.model.predict(model_input)
 
@@ -366,7 +366,7 @@ class SteeringActionClient(Node):
         time = Time.from_msg(msg.header.stamp).nanoseconds / 1e9
         #self.get_logger().info("prev time: {} \n".format(self.prev_est_time))
         #self.get_logger().info("time now : {} \n".format(time))
-        vel = (boom_prediction.mean[0][0]) / (time - self.prev_est_time) * 8 # (8 / 10)
+        vel = (boom_prediction.mean[0][0]) / (0.1) * 8 # (8 / 10)
     
         self.prev_est_time = time
         # Send velocity to the ros2 controller which will move the joints
@@ -432,7 +432,7 @@ class SteeringActionClient(Node):
 
             time = Time.from_msg(self.get_clock().now().to_msg()).nanoseconds / 1e9
 
-            vel = (M_instance[:, 0, 1]/ (time - self.prev_time)) * 8# (8 / 10)
+            vel = (M_instance[:, 0, 1]/ (0.1)) * 8# (8 / 10)
 
             self.get_logger().info("estimated vel according to controller is: {}".format(vel))
 

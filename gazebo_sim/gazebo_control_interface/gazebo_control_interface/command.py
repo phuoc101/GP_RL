@@ -14,7 +14,7 @@ class MinimalPublisher(Node):
         self.timer = self.create_timer(timer_period, self.timer_callback)
         self.i = 0
         self.msg = JointState()
-        self.msg.velocity = [0.4, 0.0, 0.0]
+        self.msg.velocity = [0.0, 0.0, 0.0]
 
     def timer_callback(self):
         self.msg.header.stamp = self.get_clock().now().to_msg()
@@ -23,7 +23,8 @@ class MinimalPublisher(Node):
 
 
     def com_call(self, msg):
-        self.msg[0] = msg.linear.x
+        print("cmd_received")
+        self.msg.velocity[0] = msg.linear.x
         
 
 

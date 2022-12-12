@@ -6,7 +6,7 @@ import torch
 from pathlib import Path
 import numpy as np
 
-from.GPModel import GPModel
+from .GPModel import GPModel
 from .controller import Controller
 from ..utils.data_loading import save_data, load_training_data, load_test_data
 from ..utils.plot import plot_policy, plot_reward, plot_MC, plot_MC_non_det
@@ -21,6 +21,8 @@ from ..utils.rl_utils import (
 
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)
+
+
 
 
 class PolicyOptimizer:
@@ -341,6 +343,8 @@ class PolicyOptimizer:
                 controller=controller,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
+                x_lb=self.x_lb,
+                x_ub=self.x_ub,
                 tf=self.Tf,
                 dt=self.dt,
                 init_state=self.init_state,

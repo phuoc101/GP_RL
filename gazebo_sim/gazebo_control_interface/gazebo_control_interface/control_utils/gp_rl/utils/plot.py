@@ -300,7 +300,6 @@ def plot_gp(
     X_test = X_test.to(device, dtype)
     y_test = y_test.to(device, dtype)
     pred_mean, pred_conf = gpmodel.eval(X_test, y_test)
-    print(type(X_test))
     if isinstance(X_test, torch.Tensor):
         X_test = X_test.cpu().numpy()
         y_test = y_test.cpu().numpy()

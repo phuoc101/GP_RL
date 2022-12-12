@@ -12,7 +12,6 @@ from ..utils.torch_utils import set_device_cpu, set_device
 float_type = torch.float32
 torch.set_default_dtype(torch.float32)
 
-
 class GPModel:
     def __init__(self, **kwargs):
         super(GPModel, self).__init__()
@@ -34,7 +33,6 @@ class GPModel:
         if not os.path.isfile(path_model) or force_train:
             # initialize models, train, save
             # load train data
-            print(path_train_data)
             if path_train_data is not None:
                 (
                     self.X_train,

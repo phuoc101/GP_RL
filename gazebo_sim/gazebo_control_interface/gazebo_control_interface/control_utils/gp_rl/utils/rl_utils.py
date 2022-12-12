@@ -8,7 +8,6 @@ from ..utils.torch_utils import get_tensor
 DEFAULT_DEVICE = torch.device("cuda:0")
 DEFAULT_DTYPE = torch.float32
 
-
 def generate_init_state(
     is_det,
     n_trajs,
@@ -115,12 +114,12 @@ def calc_realizations(
     for k in range(1, horizon + 1):
         with torch.no_grad():
             # get u:  state -> controller -> u
-            M[:, -1, k] = controller(M[:, :-1, k] - target_state)[:, 0]
+            M[:, -1, k - 1] = controller(M[:, :-1, k - 1] - target_state)[:, 0]
             # predict next state: s_{t+1} = GP(s,u)
-            predictions = gp_model.predict(M[:, :, k])
+            predictions = gp_model.predict(M[:, :, k - 1])
         randtensor = predictions.mean + predictions.stddev * rand_tensor[:, :, k]
         # predict next state
-        M[:, :-1, k + 1] = M[:, :-1, k] + randtensor
+        M[:, :-1, k] = M[:, :-1, k - 1] + randtensor
 
     t_elapsed = time.perf_counter() - t1
     logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
@@ -187,6 +186,8 @@ def calc_realizations_non_det_init(
     controller,
     state_dim,
     control_dim,
+    x_lb,
+    x_ub,
     dt,
     init_state,
     target_state,
@@ -206,14 +207,27 @@ def calc_realizations_non_det_init(
     )
     # initial state+u and concat
     state = generate_init_state(
-        is_det=False, n_trajs=n_trajs_sim, default_init_state=init_state
+        is_det=False,
+        n_trajs=n_trajs_sim,
+        default_init_state=init_state,
+        x_lb=x_lb,
+        x_ub=x_ub,
+        state_dim=state_dim,
+        initial_distr="full",
     )
     # assign data to M, memory := sys.getsizeof(M.storage())
     M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
     # convert target state to tensor if not alr is
     if not isinstance(target_state, torch.Tensor):
         target_state = get_tensor(
-            data=generate_goal(is_det=True, default_target_state=target_state),
+            data=generate_goal(
+                is_det=True,
+                default_target_state=target_state,
+                goal_distr="full",
+                x_lb=x_lb,
+                x_ub=x_ub,
+                state_dim=state_dim,
+            ),
             device=device,
             dtype=dtype,
         )
@@ -224,13 +238,14 @@ def calc_realizations_non_det_init(
     for k in range(1, horizon + 1):
         with torch.no_grad():
             # get u:  state -> controller -> u
-            M[:, -1, k] = controller(M[:, :-1, k] - target_state)[:, 0]
+            M[:, -1, k - 1] = controller(M[:, :-1, k - 1] - target_state)[:, 0]
             # predict next state: s_{t+1} = GP(s,u)
-            predictions = gp_model.predict(M[:, :, k])
+            predictions = gp_model.predict(M[:, :, k - 1])
         px = predictions.mean
         # predict next state
-        M[:, :-1, k + 1] = M[:, :-1, k] + px
+        M[:, :-1, k] = M[:, :-1, k - 1] + px
 
     t_elapsed = time.perf_counter() - t1
     logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
     return M
+

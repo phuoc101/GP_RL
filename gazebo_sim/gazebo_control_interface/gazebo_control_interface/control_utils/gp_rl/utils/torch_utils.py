@@ -28,3 +28,4 @@ def set_device_cpu(self):
 
 def to_gpu(obj):
     obj.to(torch.device("cuda:0"), dtype=torch.float32)
+    

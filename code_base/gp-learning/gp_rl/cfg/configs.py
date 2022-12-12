@@ -54,7 +54,7 @@ def get_optimizer_config():
         "Rinit": 40,
         "Sinit": 0 * np.pi / 180,
         # initial and goal state
-        "init_state": np.array([-1, 0]),
+        "init_state": np.array([-0.5, 0]),
         "target_state": np.array([0, 0]),
         "Tf": 30,  # T final - seconds
         "dt": 0.1,  # in seconds, so frequency is 10Hz

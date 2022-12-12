@@ -341,6 +341,8 @@ class PolicyOptimizer:
                 controller=controller,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
+                x_lb=self.x_lb,
+                x_ub=self.x_ub,
                 tf=self.Tf,
                 dt=self.dt,
                 init_state=self.init_state,

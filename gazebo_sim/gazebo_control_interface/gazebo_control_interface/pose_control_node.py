@@ -80,14 +80,52 @@ class SteeringActionClient(Node):
     to match the simulation parameters
     """
 
-    def __init__(self, opts):
+    def __init__(self):
         super().__init__("gazebo_joint_controller")
 
+        # ros args
+        self.declare_parameters(
+            namespace="",
+            parameters=[
+                ("gain_gas", 20),
+                ("gain_steering", 2.5),
+                ("gain_boom", 2),
+                ("gain_bucket", 2),
+                ("tf", 25),
+                ("dt", 0.1),
+                ("state_dim", 1),
+                ("control_dim", -1),
+                ("target_state", [0]),
+                ("force_train_gp", False),
+                ("logger_verbose", "DEBUG"),
+                ("path_to_training_data", "/home/teemu/data/boom_trial_6_10hz.pkl"),
+                ("path_to_model_data", "/home/teemu/results/gp/GPmodel.pkl"),
+                ("controller_data", "/home/teemu/results/controller/_all.pkl")
+            ]
+        )
+
+        self.get_logger().info("Route to training data {}".format(self.get_parameter("path_to_training_data").get_parameter_value().string_value))
+        self.get_logger().info("Route to model data {}".format(self.get_parameter("path_to_model_data").get_parameter_value().string_value))
+        self.get_logger().info("Route to controller data {}".format(self.get_parameter("controller_data").get_parameter_value().string_value))
+
+        # gains for control
+
+        self.gas_gain = self.get_parameter("gain_gas").value
+        self.gain_steering = self.get_parameter("gain_steering").value
+        self.gain_boom = self.get_parameter("gain_boom").value
+        self.gain_bucket = self.get_parameter("gain_bucket").value
+
+        # model opts
+
+
+
+        logger.remove()
+        logger.add(sys.stderr, level=self.get_parameter("logger_verbose").get_parameter_value().string_value)
         self.state_dim = 0
         self.control_dim = 0
 
-        self.model = self.init_model(opts)
-        self.controller = self.init_controller(opts)
+        self.model = self.init_model()
+        self.controller = self.init_controller()
         # action client is responsible for sending goals to the 
         # joint_trajectory_controller which executes the joint command to the simulator model
 
@@ -107,15 +145,6 @@ class SteeringActionClient(Node):
         self.prev_time = None
         self.logger = 0
 
-        self.declare_parameters(
-            namespace="",
-            parameters=[
-                ("gain_gas", 20),
-                ("gain_steering", 2.5),
-                ("gain_boom", 2),
-                ("gain_bucket", 2)
-            ]
-        )
 
         # msg definations
 
@@ -124,13 +153,6 @@ class SteeringActionClient(Node):
         self.msg_out.position.append(0.0)
         self.msg_out.velocity.append(0.0)
         self.msg_out.velocity.append(0.0)
-
-        # gains for control
-
-        self.gas_gain = self.get_parameter("gain_gas").value
-        self.gain_steering = self.get_parameter("gain_steering").value
-        self.gain_boom = self.get_parameter("gain_boom").value
-        self.gain_bucket = self.get_parameter("gain_bucket").value
 
         # states to keep after in the joints
         self.steer = 0.0
@@ -160,29 +182,29 @@ class SteeringActionClient(Node):
 
         self.prev_time = None
 
-    def init_model(self, opts): 
+    def init_model(self): 
         """
         initialize gp model 
         """
-        self.state_dim = opts.state_dim
-        self.control_dim = opts.control_dim
+
         gpmodel = GPModel(**get_gp_train_config())
         gpmodel.initialize_model(
-        path_model="/home/teemu/results/gp/GPmodel.pkl",
-        # uncomment the lines below for retraining
-         path_train_data="/home/teemu/data/boom_trial_6_10hz.pkl",
-         force_train=opts.force_train_gp,
+            path_model=self.get_parameter("path_to_model_data").get_parameter_value().string_value,
+            # uncomment the lines below for retraining
+            path_train_data=self.get_parameter("path_to_training_data").get_parameter_value().string_value,
+            force_train=self.get_parameter("force_train_gp").value,
         )
 
         return gpmodel
 
-    def init_controller(self, opts):
-        controller_data = load_data("/home/teemu/results/controller/_all.pkl")
+    def init_controller(self):
+        self.state_dim = self.get_parameter("state_dim").value
+        self.control_dim = self.get_parameter("control_dim").value
+        controller_data = load_data(self.get_parameter("controller_data").get_parameter_value().string_value)
         controller = self.get_best_controller(controller_data)
         to_gpu(controller)
         logger.info("controller model loaded")
         return controller
-
 
     def get_best_controller(self, controller_data):
         """
@@ -363,12 +385,10 @@ class SteeringActionClient(Node):
             vel_bucket = 0.0
 
 
-        time = Time.from_msg(msg.header.stamp).nanoseconds / 1e9
         #self.get_logger().info("prev time: {} \n".format(self.prev_est_time))
         #self.get_logger().info("time now : {} \n".format(time))
-        vel = (boom_prediction.mean[0][0]) / (0.1) * 8 # (8 / 10)
+        vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value) * 8 # (8 / 10)
     
-        self.prev_est_time = time
         # Send velocity to the ros2 controller which will move the joints
         
         self.get_logger().info("valve cmd: {} \n".format(vel_boom))
@@ -376,7 +396,6 @@ class SteeringActionClient(Node):
         self.get_logger().info("boom pose: {} \n".format(self.boom_pose))
         self.get_logger().info("calculated vel: {} \n".format(self.boom_vel))
         self.get_logger().info("estimated vel: {} \n".format(vel.item()))
-        self.logger = 0
 		# float(boom_vel.mean[0][1]),
 
         self.msg_out.position[0] =(self.boom_pose)
@@ -386,16 +405,10 @@ class SteeringActionClient(Node):
 
         self.state_publisher.publish(self.msg_out)
 
-        if -0.2 <= vel.item() <= 0.2:
-            vel = 0.0
         
-        else:
-            vel = vel.item()
-        
-        msg_out.data = [vel, vel_tel, vel_bucket]
+        msg_out.data = [vel.item(), vel_tel, vel_bucket]
         
         self.manipulator_speed_publisher.publish(msg_out)
-        self.logger += 1
 
 
     def wanted_pos_callback(self, msg):
@@ -406,71 +419,54 @@ class SteeringActionClient(Node):
             msg Jointstate: pos [1]
         """
 
-        if (self.prev_time == None):
-            print("time error")
-            self.prev_time = Time.from_msg(self.get_clock().now().to_msg()).nanoseconds / 1e9
+
+        init_state = np.array(self.boom_pose)
+        target_state = get_tensor(np.array(msg.position[BOOM]))
+
+        M_instance = (
+        calc_realization_mean(
+            gp_model=self.model,
+            controller=self.controller,
+            state_dim=self.state_dim,
+            control_dim=self.control_dim,
+            dt=0.1,
+            init_state=init_state,
+            target_state=target_state,
+        )
+        .cpu()
+        .numpy()
+        )
+
+        vel = (M_instance[:, 0, 1]/ (self.get_parameter("dt").value)) * 8# (8 / 10)
+
+        valve_cmd = M_instance[:, -1, 0].item()
+        self.get_logger().info("estimated vel according to controller is: {}".format(valve_cmd))
+
+        command = torch.from_numpy(np.asarray([self.boom_pose, valve_cmd])).float()
         
-        else:
-            print((self.boom_pose - msg.position[BOOM]) )
+        model_input  = torch.reshape(command,(1,2))
+        model_input = model_input.to(self.model.device, self.model.dtype)
+        boom_prediction = self.model.predict(model_input)
+        vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value) * 8 # (8 / 10)
 
-            init_state = np.array(self.boom_pose)
-            target_state = get_tensor(np.array(msg.position[BOOM]))
+        msg_out = Float64MultiArray()
+        msg_out.data = [vel.item(), 0.0, 0.0]
+        self.manipulator_speed_publisher.publish(msg_out)
 
-            M_instance = (
-            calc_realization_mean(
-                gp_model=self.model,
-                controller=self.controller,
-                state_dim=self.state_dim,
-                control_dim=self.control_dim,
-                dt=0.1,
-                init_state=init_state,
-                target_state=target_state,
-            )
-            .cpu()
-            .numpy()
-            )
+        self.msg_out.position[0] = (self.boom_pose)
+        self.msg_out.position[1] = msg.position[BOOM]
+        self.msg_out.velocity[0] = self.boom_vel
+        self.msg_out.velocity[1] = M_instance[:, -1, 0].item()
 
-            time = Time.from_msg(self.get_clock().now().to_msg()).nanoseconds / 1e9
-
-            vel = (M_instance[:, 0, 1]/ (0.1)) * 8# (8 / 10)
-
-            self.get_logger().info("estimated vel according to controller is: {}".format(vel))
-
-            self.prev_time = time
-            logger.info(vel[0].item())
-            msg_out = Float64MultiArray()
-            msg_out.data = [M_instance[:, -1, 0].item(), 0.0, 0.0]
-            self.manipulator_speed_publisher.publish(msg_out)
-
-            self.msg_out.position[0] = (self.boom_pose)
-            self.msg_out.position[1] = msg.position[BOOM]
-            self.msg_out.velocity[0] = self.boom_vel
-            self.msg_out.velocity[1] = M_instance[:, -1, 0].item()
-
-            self.state_publisher.publish(self.msg_out)
-
+        self.state_publisher.publish(self.msg_out)
             
 
 
 def main(args=None):
-    parser = argparse.ArgumentParser()
-    # fmt: off
-    parser.add_argument("--tf", default=25, type=float, help="Time to run simulation")  # noqa
-    parser.add_argument("--dt", default=0.1, type=float, help="Sampling time")  # noqa
-    parser.add_argument("--state-dim", default=1, type=int, help="Number of observed states")  # noqa
-    parser.add_argument("--control-dim", default=1, type=int, help="Number of controlled states")  # noqa
-    parser.add_argument("--init-state", nargs="+", default=[-1], help="Define initial state (based on state-dim)")  # noqa
-    parser.add_argument("--target-state", nargs="+", default=[0], help="Define goal state (based on state-dim)")  # noqa
-    parser.add_argument("--visualize-gp", action="store_true", help="Visualize GP")  # noqa
-    parser.add_argument("--force-train-gp", action="store_true", help="Force train GP Model again")  # noqa
-    parser.add_argument("--verbose", default="DEBUG", type=str, help="Verbosity level (INFO, DEBUG, WARNING, ERROR)")  # noqa
-    # fmt: on
-    opts = parser.parse_args()
-    logger.remove()
-    logger.add(sys.stderr, level=opts.verbose)
+
     rclpy.init()
     # Turn on the ROS2 node and make it run in the loop
-    action_client = SteeringActionClient(opts)
+    action_client = SteeringActionClient()
     #saction_client.update_joints()
     rclpy.spin(action_client)
 

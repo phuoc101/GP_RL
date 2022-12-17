@@ -1,0 +1,6 @@
+gazebo_joint_controller:
+  ros__parameters:
+    gain_gas: 5
+    gain_steering: 2.5
+    gain_boom: 2
+    gain_bucket: 2

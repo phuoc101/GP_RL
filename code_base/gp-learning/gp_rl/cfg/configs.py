@@ -61,4 +61,5 @@ def get_optimizer_config():
         "W_R": np.diag([0.5, 0.2]),
         "normalize_target": True,
         "learning_rate": 0.01,
+        "train_single_controller": False,
     }

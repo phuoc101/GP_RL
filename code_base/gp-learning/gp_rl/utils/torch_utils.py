@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from loguru import logger
 
 DEFAULT_DEVICE = torch.device("cuda:0")
@@ -8,7 +9,7 @@ DEFAULT_DTYPE = torch.float32
 def get_tensor(data, device=DEFAULT_DEVICE, dtype=DEFAULT_DTYPE):
     if isinstance(data, torch.Tensor):
         return data.to(device)
-    else:
+    elif isinstance(data, np.ndarray):
         return torch.tensor(data, dtype=dtype, device=device)
 
 

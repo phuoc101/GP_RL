@@ -3,9 +3,9 @@ import numpy as np
 import gpytorch
 import time
 import torch
+from loguru import logger
 
 from models.BatchIndependentMultitaskGPModel import BatchIndependentMultitaskGPModel
-from loguru import logger
 from utils.data_loading import load_training_data, load_data, save_data
 from utils.torch_utils import set_device_cpu, set_device
 

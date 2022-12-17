@@ -51,6 +51,7 @@ def get_configs(opts):
         "goal_distr": opts.goal_distr,
         "Tf": opts.tf,
         "force_train_gp": opts.force_train_gp,
+        "train_single_controller": opts.train_single_controller,
         # load gp and controller configs
         "gp_config": gp_config,
         "controller_config": controller_config,
@@ -76,6 +77,7 @@ if __name__ == "__main__":
     parser.add_argument("--controller-type", default="NN", help="Type of controller (Linear or NN)") # noqa
     parser.add_argument("--num-states", type=int, default=1, help="Number of tasks: 2 for xv and 1 for x") # noqa
     parser.add_argument("--tf", type=int, default=10, help="Maximum time for 1 trial") # noqa
+    parser.add_argument("--train-single-controller", action="store_true", help="Train a single controller, no reset controller after every trial")  # noqa
     parser.add_argument("--force_cpu", action="store_true", help="Force using CPU")  # noqa
     parser.add_argument("--normalize", action="store_true", help="Normalize training data") # noqa
     parser.add_argument("--force-train-gp", action="store_true", help="Force training GP model") # noqa

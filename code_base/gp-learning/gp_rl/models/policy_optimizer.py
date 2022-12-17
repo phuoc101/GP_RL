@@ -142,8 +142,9 @@ class PolicyOptimizer:
                 dtype=self.dtype,
             )
             self.reset()
-            # Initialize a new controller
-            self.controller = self.get_controller()
+            if not self.train_single_controller:
+                # Initialize a new controller if necessary
+                self.controller = self.get_controller()
             controller_initial = deepcopy(self.controller)
 
             self.set_optimizer()

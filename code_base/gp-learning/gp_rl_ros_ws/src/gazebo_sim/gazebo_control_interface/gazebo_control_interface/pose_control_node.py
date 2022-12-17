@@ -42,11 +42,11 @@ from pathlib import Path
 from rclpy.time import Time
 from ament_index_python import get_package_share_path
 
-from .control_utils.cfg.configs import get_gp_train_config
-from .control_utils.models.GPModel import GPModel
-from .control_utils.utils.data_loading import load_data
-from .control_utils.utils.torch_utils import to_gpu, get_tensor
-from .control_utils.utils.rl_utils import calc_realization_mean
+from gp_rl.cfg.configs import get_gp_train_config
+from gp_rl.models.GPModel import GPModel
+from gp_rl.utils.data_loading import load_data
+from gp_rl.utils.torch_utils import to_gpu, get_tensor
+from gp_rl.utils.rl_utils import calc_realization_mean
 
 import torch
 import numpy as np
@@ -74,9 +74,7 @@ TELESCOPE_UPPER_LIM = 0.68
 TIMEOUT = 0.001
 
 dir_path = Path(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(
-    os.path.join(get_package_share_path("gazebo_control_interface"), "gp_rl")
-)
+sys.path.append(os.path.join(get_package_share_path("gazebo_control_interface")))
 
 
 class SteeringActionClient(Node):

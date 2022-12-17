@@ -41,7 +41,6 @@ from rclpy.time import Time
 from control_msgs.msg import DynamicJointState
 
 # other
-import matplotlib.pyplot as plt
 import torch
 import numpy as np
 import rclpy
@@ -52,8 +51,8 @@ import os
 # pkg utils
 from math import atan
 from loguru import logger
-from .control_utils.cfg import configs
-from .control_utils.models.GPModel import GPModel
+from gp_rl.cfg import configs
+from gp_rl.models.GPModel import GPModel
 
 # Constants for the system
 GEAR_MOVE = 1

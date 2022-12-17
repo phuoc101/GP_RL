@@ -71,7 +71,7 @@ TELESCOPE = 2
 TELESCOPE_LOW_LIM = 0.02
 TELESCOPE_UPPER_LIM = 0.68
 # Constant for controller timeout
-TIMEOUT = 0.001
+TIMEOUT = 0.1
 
 dir_path = Path(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(get_package_share_path("gazebo_control_interface")))

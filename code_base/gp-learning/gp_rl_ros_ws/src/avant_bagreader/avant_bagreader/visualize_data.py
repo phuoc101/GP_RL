@@ -4,6 +4,11 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 
+BOOM = 0
+BUCKET = 1
+TELES = 2
+JOINTS = ["boom", "bucket", "telescope"]
+
 
 class DataVisualizer(Node):
     def __init__(self):
@@ -23,48 +28,64 @@ class DataVisualizer(Node):
     def visualize_data(self):
         if "xvu" in self.datafile:
             self.logger.debug(
-                f"Position readings count: {len(self.data['X1_xvu'][:,0])}"
+                f"Position readings count: {len(self.data['X1_xvu'][BOOM, 0, :])}"
             )
             self.logger.debug(
-                f"Velocity readings count: {len(self.data['X1_xvu'][:,1])}"
+                f"Velocity readings count: {len(self.data['X1_xvu'][BOOM, 1, :])}"
             )
-            self.logger.debug(f"Input cmd count: {len(self.data['X1_xvu'][:,2])}")
+            self.logger.debug(
+                f"Input cmd count: {len(self.data['X1_xvu'][BOOM, 2, :])}"
+            )
         else:
             self.logger.debug(
-                f"Position readings count: {len(self.data['X1_xu'][:,0])}"
+                f"Position readings count: {len(self.data['X1_xu'][BOOM, 0, :])}"
             )
-            self.logger.debug(f"Input cmd count: {len(self.data['X1_xu'][:,1])}")
+            self.logger.debug(f"Input cmd count: {len(self.data['X1_xu'][BOOM, 1, :])}")
         title = "Plots with self.data from dataset {}, frequency {}Hz".format(
             self.data["name"], self.data["frequency"]
         )
-        fig, ax = plt.subplots(3)
+        fig, ax = plt.subplots(2, 3)
         fig.suptitle(title)
-        if "xvu" in self.datafile:
-            ax[0].plot(
+        for i, joint in enumerate(JOINTS):
+            if "xvu" in self.datafile:
+                ax[0][i].plot(
+                    self.data["timestamp"],
+                    self.data["X1_xvu"][i, 0, :],
+                    label=f"{joint} position (rad)",
+                )
+                ax[0][i].plot(
+                    self.data["timestamp"],
+                    self.data["X1_xvu"][i, 1, :],
+                    label=f"{joint} velocity",
+                )
+                ax[0][i].plot(
+                    self.data["timestamp"],
+                    self.data["X1_xvu"][i, 2, :],
+                    label=f"{joint} input",
+                )
+            else:
+                ax[0][i].plot(
+                    self.data["timestamp"],
+                    self.data["X1_xu"][i, 0, :],
+                    label=f"{joint} position (rad)",
+                )
+                ax[0][i].plot(
+                    self.data["timestamp"],
+                    self.data["X1_xu"][i, 1, :],
+                    label=f"{joint} input",
+                )
+            ax[1][i].plot(
                 self.data["timestamp"],
-                self.data["X1_xvu"][:, 0],
-                label="boom position (rad)",
+                self.data["Y1"][i, :],
+                label=f"d_{joint}_pos (rad)",
             )
-            ax[0].plot(
-                self.data["timestamp"], self.data["X1_xvu"][:, 1], label="boom velocity"
-            )
-            ax[0].plot(
-                self.data["timestamp"], self.data["X1_xvu"][:, 2], label="input u"
-            )
-        else:
-            ax[0].plot(
-                self.data["timestamp"],
-                self.data["X1_xu"][:, 0],
-                label="boom position (rad)",
-            )
-            ax[0].plot(
-                self.data["timestamp"], self.data["X1_xu"][:, 1], label="input u"
-            )
-        ax[1].plot(self.data["timestamp"], self.data["Y1"], label="d_boom_pos (rad)")
-        # ax[1, 0].plot(self.data["timestamp"], self.data["Y2"], label="d_boom_vel")
-        ax[2].plot(np.diff(self.data["timestamp"]), label="timestmp_diff (sec)")
+            # ax[2][i].plot(
+            #     np.diff(self.data["timestamp"]), label="timestmp_diff (sec)"
+            # )
         for a in ax:
-            a.legend()
+            for p in ax:
+                for pl in p:
+                    pl.legend()
         plt.legend()
         plt.show()
 

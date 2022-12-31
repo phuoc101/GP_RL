@@ -18,19 +18,19 @@ os.makedirs(DATA_PATH, exist_ok=True)
 # input index: index of each joint in  /bag_joint_states
 IN_BOOM = 2
 IN_BUCKET = 3
-IN_TELESCOPE = 7
+IN_TELE = 7
 # u index: index of input in /input_valve_cmd
 U_BOOM = 1
 U_BUCKET = 2
-U_TELESCOPE = 3
+U_TELE = 3
 # collected index: input in collected dict
 C_BOOM = 0
 C_BUCKET = 1
-C_TELESCOPE = 2
+C_TELE = 2
 # combined index
-IN_IDX = [IN_BOOM, IN_BUCKET, IN_TELESCOPE]
-U_IDX = [U_BOOM, U_BUCKET, U_TELESCOPE]
-C_IDX = [C_BOOM, C_BUCKET, C_TELESCOPE]
+IN_IDX = [IN_BOOM, IN_BUCKET, IN_TELE]
+U_IDX = [U_BOOM, U_BUCKET, U_TELE]
+C_IDX = [C_BOOM, C_BUCKET, C_TELE]
 
 
 class DataSync(Node):
@@ -155,11 +155,20 @@ class DataSync(Node):
         Y2 = np.hstack(([[0], [0], [0]], np.diff(v)))
         # stack inputs
         # if self.num_inputs == 3:
-        xvu = np.vstack([x, v, u])
+        xvu_boom = np.vstack([x[C_BOOM, :], v[C_BOOM, :], u[C_BOOM, :]])
+        xvu_bucket = np.vstack([x[C_BUCKET, :], v[C_BUCKET, :], u[C_BUCKET, :]])
+        xvu_telescope = np.vstack([x[C_TELE, :], v[C_TELE, :], u[C_TELE, :]])
+        print(xvu_boom.shape)
+        print(xvu_bucket.shape)
+        print(xvu_telescope.shape)
+        xvu = np.stack([xvu_boom, xvu_bucket, xvu_telescope])
         self.logger.debug(f"xvu shape: {xvu.shape}")
         self.logger.debug(f"Y1 shape: {Y1.shape}")
         self.logger.debug(f"Y2 shape: {Y2.shape}")
-        xu = np.vstack([x, u])
+        xu_boom = np.vstack([x[C_BOOM, :], u[C_BOOM, :]])
+        xu_bucket = np.vstack([x[C_BUCKET, :], u[C_BUCKET, :]])
+        xu_telescope = np.vstack([x[C_TELE, :], u[C_TELE, :]])
+        xu = np.stack([xu_boom, xu_bucket, xu_telescope])
         self.logger.debug(f"xu shape: {xu.shape}")
         self.logger.debug(f"Y1 shape: {Y1.shape}")
         data = {

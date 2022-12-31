@@ -15,6 +15,23 @@ DATA_PATH = os.path.abspath(
 )
 os.makedirs(DATA_PATH, exist_ok=True)
 
+# input index: index of each joint in  /bag_joint_states
+IN_BOOM = 2
+IN_BUCKET = 3
+IN_TELESCOPE = 7
+# u index: index of input in /input_valve_cmd
+U_BOOM = 1
+U_BUCKET = 2
+U_TELESCOPE = 3
+# collected index: input in collected dict
+C_BOOM = 0
+C_BUCKET = 1
+C_TELESCOPE = 2
+# combined index
+IN_IDX = [IN_BOOM, IN_BUCKET, IN_TELESCOPE]
+U_IDX = [U_BOOM, U_BUCKET, U_TELESCOPE]
+C_IDX = [C_BOOM, C_BUCKET, C_TELESCOPE]
+
 
 class DataSync(Node):
     def __init__(self):
@@ -31,13 +48,14 @@ class DataSync(Node):
         self.COLLECTING = True
         self.HAS_DATA = False
         self.timeout_cnt = 0
-        self.boom_position = 0
-        self.boom_velocity = 0
-        self.input = 0
         self.msg_dict = {}
-        self.msg_dict["boom_position"] = []
-        self.msg_dict["boom_velocity"] = []
-        self.msg_dict["input"] = []
+
+        self.position = np.zeros(3)
+        self.velocity = np.zeros(3)
+        self.input = np.zeros(3)
+        self.msg_dict["position"] = [[], [], []]
+        self.msg_dict["velocity"] = [[], [], []]
+        self.msg_dict["input"] = [[], [], []]
         self.msg_dict["timestamp"] = []
 
     def init_ros(self):
@@ -75,41 +93,40 @@ class DataSync(Node):
 
     def joint_state_callback(self, msg):
         if self.STARTED:
-            self.boom_position = msg.position[2]
-            self.boom_velocity = msg.velocity[2]
+            for xv, col in zip(IN_IDX, C_IDX):
+                self.position[col] = msg.position[xv]
+                self.velocity[col] = msg.velocity[xv]
 
     def input_callback(self, msg):
         if not self.STARTED:
             self.STARTED = True
             self.logger.info("Data Collecting started")
         else:
-            if msg.position[1] > 100:
-                self.input = -(1 - (msg.position[1] - 155) / 100)
-            else:
-                self.input = msg.position[1] / 100
+            for u, col in zip(U_IDX, C_IDX):
+                if msg.position[u] > 100:
+                    self.input[col] = -(1 - (msg.position[u] - 155) / 100)
+                else:
+                    self.input[col] = msg.position[u] / 100
             self.HAS_DATA = True
+
+    def collect_data(self):
+        timestamp = rclpy.clock.Clock().now().seconds_nanoseconds()
+        sec = timestamp[0]
+        nsec = timestamp[1]
+        timestamp_sec = sec + nsec / 1e9
+        self.msg_dict["timestamp"].append(timestamp_sec)
+        for collected in C_IDX:
+            self.msg_dict["position"][collected].append(self.position[collected])
+            self.msg_dict["velocity"][collected].append(self.velocity[collected])
+            self.msg_dict["input"][collected].append(self.input[collected])
 
     def timer_callback(self):
         if self.COLLECTING:
             if self.STARTED and self.HAS_DATA:
-                timestamp = rclpy.clock.Clock().now().seconds_nanoseconds()
-                sec = timestamp[0]
-                nsec = timestamp[1]
-                timestamp_sec = sec + nsec / 1e9
-                self.msg_dict["timestamp"].append(timestamp_sec)
-                self.msg_dict["boom_position"].append(self.boom_position)
-                self.msg_dict["boom_velocity"].append(self.boom_velocity)
-                self.msg_dict["input"].append(self.input)
+                self.collect_data()
                 self.HAS_DATA = False
             elif self.STARTED and not self.HAS_DATA:
-                timestamp = rclpy.clock.Clock().now().seconds_nanoseconds()
-                sec = timestamp[0]
-                nsec = timestamp[1]
-                timestamp_sec = sec + nsec / 1e9
-                self.msg_dict["timestamp"].append(timestamp_sec)
-                self.msg_dict["boom_position"].append(self.boom_position)
-                self.msg_dict["boom_velocity"].append(self.boom_velocity)
-                self.msg_dict["input"].append(self.input)
+                self.collect_data()
                 self.timeout_cnt += 1
                 if self.timeout_cnt == self.timeout_max:
                     self.COLLECTING = False
@@ -130,28 +147,19 @@ class DataSync(Node):
         # start from index 1 to prevent random jumps in value
         t = np.array(self.msg_dict["timestamp"])[1:]
         # training input
-        x = np.array(self.msg_dict["boom_position"])[1:]
-        v = np.array(self.msg_dict["boom_velocity"])[1:]
-        u = np.array(self.msg_dict["input"])[1:]
+        x = np.array([x_col[1:] for x_col in self.msg_dict["position"]])
+        v = np.array([v_col[1:] for v_col in self.msg_dict["velocity"]])
+        u = np.array([u_col[1:] for u_col in self.msg_dict["input"]])
         # training output
-        Y1 = np.concatenate(([0], np.diff(x)))
-        Y2 = np.concatenate(([0], np.diff(v)))
+        Y1 = np.hstack(([[0], [0], [0]], np.diff(x)))
+        Y2 = np.hstack(([[0], [0], [0]], np.diff(v)))
         # stack inputs
         # if self.num_inputs == 3:
-        xvu = np.stack([x, v, u], axis=1)
+        xvu = np.vstack([x, v, u])
         self.logger.debug(f"xvu shape: {xvu.shape}")
         self.logger.debug(f"Y1 shape: {Y1.shape}")
         self.logger.debug(f"Y2 shape: {Y2.shape}")
-        # data = {
-        #     "name": self.name,
-        #     "frequency": self.frequency,
-        #     "X1_xvu": xvu,
-        #     "Y1": Y1,
-        #     "Y2": Y2,
-        #     "timestamp": t,
-        # }
-        # elif self.num_inputs == 2:
-        xu = np.stack([x, u], axis=1)
+        xu = np.vstack([x, u])
         self.logger.debug(f"xu shape: {xu.shape}")
         self.logger.debug(f"Y1 shape: {Y1.shape}")
         data = {

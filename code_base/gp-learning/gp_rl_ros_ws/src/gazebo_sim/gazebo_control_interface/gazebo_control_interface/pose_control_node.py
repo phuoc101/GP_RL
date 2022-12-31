@@ -522,9 +522,6 @@ class SteeringActionClient(Node):
         )
 
         valve_cmd = M_instance[:, -1, 0].item()
-        self.get_logger().info(
-            "estimated vel according to controller is: {}".format(valve_cmd)
-        )
 
         command = torch.from_numpy(np.asarray([self.boom_pose, valve_cmd])).float()
 
@@ -532,6 +529,10 @@ class SteeringActionClient(Node):
         model_input = model_input.to(self.model.device, self.model.dtype)
         boom_prediction = self.model.predict(model_input)
         vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value)
+
+        self.get_logger().info("Valve command is: {}".format(valve_cmd))
+        self.get_logger().info("Calculated boom velocity is: {}".format(vel.item()))
+        self.get_logger().info("Estimated boom velocity is: {}".format(self.boom_vel))
 
         mani_speed_msg_out = Float64MultiArray()
         mani_speed_msg_out.data = [vel.item(), 0.0, 0.0]

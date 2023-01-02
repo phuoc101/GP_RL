@@ -72,8 +72,8 @@ def main(opts):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # fmt: off
-    parser.add_argument("--train-data", default="../data/boom_xu_trial6_10hz.pkl", help="Path to training dataset")  # noqa
-    parser.add_argument("--test-data", default="../data/boom_xu_trial3_10hz.pkl", help="Path to test dataset")  # noqa
+    parser.add_argument("--train-data", default="../data/boom_trial6_10hz.pkl", help="Path to training dataset")  # noqa
+    parser.add_argument("--test-data", default="../data/boom_trial3_10hz.pkl", help="Path to test dataset")  # noqa
     parser.add_argument("--controller-type", default="NN", help="Type of controller (Linear or NN)") # noqa
     parser.add_argument("--num-states", type=int, default=1, help="Number of tasks: 2 for xv and 1 for x") # noqa
     parser.add_argument("--tf", type=int, default=10, help="Maximum time for 1 trial") # noqa

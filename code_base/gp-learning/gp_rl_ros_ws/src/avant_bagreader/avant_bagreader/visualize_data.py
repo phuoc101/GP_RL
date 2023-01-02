@@ -28,19 +28,19 @@ class DataVisualizer(Node):
     def visualize_data(self):
         if "xvu" in self.datafile:
             self.logger.debug(
-                f"Position readings count: {len(self.data['X1_xvu'][BOOM, 0, :])}"
+                f"Position readings count: {len(self.data['X1_xvu'][BOOM, :, 0])}"
             )
             self.logger.debug(
-                f"Velocity readings count: {len(self.data['X1_xvu'][BOOM, 1, :])}"
+                f"Velocity readings count: {len(self.data['X1_xvu'][BOOM, :, 1])}"
             )
             self.logger.debug(
-                f"Input cmd count: {len(self.data['X1_xvu'][BOOM, 2, :])}"
+                f"Input cmd count: {len(self.data['X1_xvu'][BOOM, :, 2])}"
             )
         else:
             self.logger.debug(
-                f"Position readings count: {len(self.data['X1_xu'][BOOM, 0, :])}"
+                f"Position readings count: {len(self.data['X1_xu'][BOOM, :, 0])}"
             )
-            self.logger.debug(f"Input cmd count: {len(self.data['X1_xu'][BOOM, 1, :])}")
+            self.logger.debug(f"Input cmd count: {len(self.data['X1_xu'][BOOM, : 1])}")
         title = "Plots with self.data from dataset {}, frequency {}Hz".format(
             self.data["name"], self.data["frequency"]
         )
@@ -50,28 +50,28 @@ class DataVisualizer(Node):
             if "xvu" in self.datafile:
                 ax[0][i].plot(
                     self.data["timestamp"],
-                    self.data["X1_xvu"][i, 0, :],
+                    self.data["X1_xvu"][i, :, 0],
                     label=f"{joint} position (rad)",
                 )
                 ax[0][i].plot(
                     self.data["timestamp"],
-                    self.data["X1_xvu"][i, 1, :],
+                    self.data["X1_xvu"][i, :, 1],
                     label=f"{joint} velocity",
                 )
                 ax[0][i].plot(
                     self.data["timestamp"],
-                    self.data["X1_xvu"][i, 2, :],
+                    self.data["X1_xvu"][i, :, 2],
                     label=f"{joint} input",
                 )
             else:
                 ax[0][i].plot(
                     self.data["timestamp"],
-                    self.data["X1_xu"][i, 0, :],
+                    self.data["X1_xu"][i, :, 0],
                     label=f"{joint} position (rad)",
                 )
                 ax[0][i].plot(
                     self.data["timestamp"],
-                    self.data["X1_xu"][i, 1, :],
+                    self.data["X1_xu"][i, :, 1],
                     label=f"{joint} input",
                 )
             ax[1][i].plot(

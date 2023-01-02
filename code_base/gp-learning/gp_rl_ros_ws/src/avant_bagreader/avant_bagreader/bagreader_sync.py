@@ -144,33 +144,31 @@ class DataSync(Node):
         sys.exit(0)
 
     def data_handling(self):
-        # start from index 1 to prevent random jumps in value
+        # Number of joints to collect data from (3: boom, bucket, telescope)
+        num_joints = len(C_IDX)
+        # start from index 1 to prevent r3andom jumps in value
         t = np.array(self.msg_dict["timestamp"])[1:]
         # training input
         x = np.array([x_col[1:] for x_col in self.msg_dict["position"]])
         v = np.array([v_col[1:] for v_col in self.msg_dict["velocity"]])
         u = np.array([u_col[1:] for u_col in self.msg_dict["input"]])
         # training output
-        Y1 = np.hstack(([[0], [0], [0]], np.diff(x)))
-        Y2 = np.hstack(([[0], [0], [0]], np.diff(v)))
+        Y1 = np.hstack((np.zeros([num_joints, 1]), np.diff(x)))
+        Y2 = np.hstack((np.zeros([num_joints, 1]), np.diff(v)))
         # stack inputs
         # if self.num_inputs == 3:
-        xvu_boom = np.vstack([x[C_BOOM, :], v[C_BOOM, :], u[C_BOOM, :]])
-        xvu_bucket = np.vstack([x[C_BUCKET, :], v[C_BUCKET, :], u[C_BUCKET, :]])
-        xvu_telescope = np.vstack([x[C_TELE, :], v[C_TELE, :], u[C_TELE, :]])
-        print(xvu_boom.shape)
-        print(xvu_bucket.shape)
-        print(xvu_telescope.shape)
-        xvu = np.stack([xvu_boom, xvu_bucket, xvu_telescope])
+        xvu = np.zeros([num_joints, len(t), 3])
+        for c in C_IDX:
+            xvu_next = np.vstack([x[c, :], v[c, :], u[c, :]]).T
+            xvu[c, :, :] = xvu_next
+        xu = np.zeros([num_joints, len(t), 2])
+        for c in C_IDX:
+            xu_next = np.vstack([x[c, :], u[c, :]]).T
+            xu[c, :, :] = xu_next
         self.logger.debug(f"xvu shape: {xvu.shape}")
-        self.logger.debug(f"Y1 shape: {Y1.shape}")
-        self.logger.debug(f"Y2 shape: {Y2.shape}")
-        xu_boom = np.vstack([x[C_BOOM, :], u[C_BOOM, :]])
-        xu_bucket = np.vstack([x[C_BUCKET, :], u[C_BUCKET, :]])
-        xu_telescope = np.vstack([x[C_TELE, :], u[C_TELE, :]])
-        xu = np.stack([xu_boom, xu_bucket, xu_telescope])
         self.logger.debug(f"xu shape: {xu.shape}")
         self.logger.debug(f"Y1 shape: {Y1.shape}")
+        self.logger.debug(f"Y2 shape: {Y2.shape}")
         data = {
             "name": self.name,
             "frequency": self.frequency,

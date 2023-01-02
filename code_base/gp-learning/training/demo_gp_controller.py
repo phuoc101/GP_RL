@@ -47,7 +47,7 @@ def main(opts):
     # ========LOAD GP_MODEL========== #
     gpmodel = GPModel(**get_gp_train_config())
     gpmodel.initialize_model(
-        path_model="./results/gp/GPmodel.pkl",
+        path_model="./results/gp/GPmodel_{}.pkl".format(opts.joint),
         # uncomment the lines below for retraining
         # path_train_data="../data/boom_trial_6_10hz.pkl",
         # force_train=opts.force_train_gp,
@@ -55,6 +55,7 @@ def main(opts):
     # =====RUN GP MODEL FOR 1 INSTANCE========#
     logger.info("=====SINGLE INSTANCE GP PREDICTION====")
     X_sample = [0.5, -1]
+    print(get_tensor(X_sample))
     X_sample_tensor = get_tensor(X_sample).reshape(1, 2)
     pred = gpmodel.predict(X_sample_tensor)
     logger.info(f"Sample initial position: {X_sample}")
@@ -71,8 +72,10 @@ def main(opts):
         plot_gp(gpmodel, test_data="../data/boom_trial_1_10hz.pkl", num_states=2)
     logger.info("GP model loaded")
 
-    # ========LOAD GP_MODEL========== #
-    controller_data = load_data("./results/controller/_all.pkl")
+    # ========LOAD CONTROLLER========== #
+    controller_data = load_data(
+        "./results/controller/{}/_all_{}.pkl".format(opts.joint, opts.joint)
+    )
     controller = get_best_controller(controller_data)
     to_gpu(controller)
     logger.info("Model loaded")
@@ -140,6 +143,7 @@ if __name__ == "__main__":
     parser.add_argument("--target-state", nargs="+", default=[0], help="Define goal state (based on state-dim)")  # noqa
     parser.add_argument("--visualize-gp", action="store_true", help="Visualize GP")  # noqa
     parser.add_argument("--force-train-gp", action="store_true", help="Force train GP Model again")  # noqa
+    parser.add_argument("--joint", default="boom", type=str, help="Joint to control (boom, bucket, telescope)")  # noqa
     parser.add_argument("--verbose", default="DEBUG", type=str, help="Verbosity level (INFO, DEBUG, WARNING, ERROR)")  # noqa
     # fmt: on
     opts = parser.parse_args()

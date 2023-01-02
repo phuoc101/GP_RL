@@ -49,7 +49,7 @@ def plot_reward(x_lb, x_ub, file_path, get_reward):
     logger.info("reward plot saved to {}".format(file_path))
 
 
-def plot_policy(controller, x_lb, x_ub, policy_log_dir, trial=1):
+def plot_policy(joint, controller, x_lb, x_ub, policy_log_dir, trial=1):
     n_x = 100
     # calc normalized 2Dmap
     # (
@@ -68,7 +68,10 @@ def plot_policy(controller, x_lb, x_ub, policy_log_dir, trial=1):
     ax.set_title(f"Policy Plot trial {trial}")
     ax.plot(inputs, actions.cpu().detach().numpy())
     os.makedirs(policy_log_dir, exist_ok=True)
-    plt.savefig(os.path.join(policy_log_dir, f"policy_plot_{trial}.png"), dpi=100)
+    plt.savefig(
+        os.path.join(policy_log_dir, "{}_policy_plot_{}.png".format(joint, trial)),
+        dpi=100,
+    )
     logger.info("policy plot saved...")
 
 
@@ -91,7 +94,7 @@ def plot_MC(Tf, dt, target, x_lb, x_ub, M_mean, M_trajs, save_dir=None):
     fig_u, ax_u = plt.subplots(1, 1)
     fig_pos.set_size_inches((7, 6))
 
-    time_vec = np.arange(0, dt * (M_trajs.shape[2]), dt)
+    time_vec = np.arange(0, dt * (M_trajs.shape[2]), dt)[0 : M_trajs.shape[2]]
     time_vec_horizon = np.arange(0, Tf, dt)
     # one-time plots
     targetlineopt = "g--"
@@ -216,7 +219,9 @@ def plot_MC_non_det(Tf, dt, target, x_lb, x_ub, M_trajs_non_det, save_dir=None):
     fig_u, ax_u = plt.subplots(1, 1)
     fig_pos.set_size_inches((7, 6))
 
-    time_vec = np.arange(0, dt * (M_trajs_non_det.shape[2]), dt)
+    time_vec = np.arange(0, dt * (M_trajs_non_det.shape[2]), dt)[
+        0 : M_trajs_non_det.shape[2]
+    ]
     time_vec_horizon = np.arange(0, Tf, dt)
     # one-time plots
     targetlineopt = "g--"

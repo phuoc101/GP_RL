@@ -6,4 +6,5 @@
 python gp_rl_main.py --verbose DEBUG --trials 5 --trial-max-iter 20 --num-states 1 --train-data ../data/boom_trial_6_10hz.pkl \
   --test-data ../data/boom_trial_1_10hz.pkl \
   --optimizer NAdam --nondet-init --force-train-gp \
-  --verbose INFO --train-single-controller --joint boom
+  --verbose INFO --joint boom \
+  --gpmodel ./results/gp/GPmodel_boom.pkl --plot-mc

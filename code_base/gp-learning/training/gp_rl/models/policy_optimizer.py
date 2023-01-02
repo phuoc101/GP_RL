@@ -30,6 +30,7 @@ class PolicyOptimizer:
         for key, value in kwargs.items():
             setattr(self, key, value)
             logger.debug(f"attribute {key}: {value}")
+        self.joint = self.gp_config["joint"]
         # set device
         if not self.force_cpu:
             set_device(self)
@@ -47,7 +48,7 @@ class PolicyOptimizer:
             self.x_lb,
             self.x_ub,
         ) = load_training_data(
-            joint=self.gp_config["joint"],
+            joint=self.joint,
             num_inputs=self.state_dim + 1,
             data_path=self.path_train_data,
             output_torch=True,
@@ -125,7 +126,9 @@ class PolicyOptimizer:
         """
         Optimize controller's parameter's
         """
-        controller_log_dir = os.path.join(self.optimizer_log_dir, "controller")
+        controller_log_dir = os.path.join(
+            self.optimizer_log_dir, "controller/{}".format(self.joint)
+        )
         os.makedirs(controller_log_dir, exist_ok=True)
         maxiter = self.optimizer_opts["max_iter"]
         trials = self.optimizer_opts["trials"]
@@ -175,10 +178,13 @@ class PolicyOptimizer:
                 optimInfo["time"].append(t2)
 
             plot_policy(
+                joint=self.joint,
                 controller=self.controller,
                 x_lb=self.x_lb,
                 x_ub=self.x_ub,
-                policy_log_dir=os.path.join(self.optimizer_log_dir, "policies"),
+                policy_log_dir=os.path.join(
+                    self.optimizer_log_dir, "policies/{}".format(self.joint)
+                ),
                 trial=tl + 1,
             )
             logger.info(
@@ -193,11 +199,17 @@ class PolicyOptimizer:
                 "std_states": self.std_states,
             }
             save_data(
-                os.path.join(controller_log_dir, f"_trial_{tl}.pkl"), trial_save_info
+                os.path.join(
+                    controller_log_dir, "_trial_{}_{}.pkl".format(tl, self.joint)
+                ),
+                trial_save_info,
             )
             # collect trial data into one
             all_optim_data["all_optimizer_data"].append(trial_save_info)
-        save_data(os.path.join(controller_log_dir, "_all.pkl"), all_optim_data)
+        save_data(
+            os.path.join(controller_log_dir, "_all_{}.pkl".format(self.joint)),
+            all_optim_data,
+        )
 
     # calculate predictions+reward without having everything in one big tensor
     def opt_step_loss(self):
@@ -336,7 +348,9 @@ class PolicyOptimizer:
             self.x_ub,
             M_mean,
             M_trajectories,
-            save_dir=os.path.join(self.optimizer_log_dir, "MC_sim"),
+            save_dir=os.path.join(
+                self.optimizer_log_dir, "MC_sim/{}".format(self.joint)
+            ),
         )
         M_trajectories_nondet = (
             calc_realizations_non_det_init(
@@ -363,5 +377,7 @@ class PolicyOptimizer:
             x_lb=self.x_lb,
             x_ub=self.x_ub,
             M_trajs_non_det=M_trajectories_nondet,
-            save_dir=os.path.join(self.optimizer_log_dir, "MC_sim"),
+            save_dir=os.path.join(
+                self.optimizer_log_dir, "MC_sim/{}".format(self.joint)
+            ),
         )

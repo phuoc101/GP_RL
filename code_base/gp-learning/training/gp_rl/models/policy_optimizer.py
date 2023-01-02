@@ -47,6 +47,7 @@ class PolicyOptimizer:
             self.x_lb,
             self.x_ub,
         ) = load_training_data(
+            joint=self.gp_config["joint"],
             num_inputs=self.state_dim + 1,
             data_path=self.path_train_data,
             output_torch=True,
@@ -54,7 +55,9 @@ class PolicyOptimizer:
         )
         # load test data
         self.X_test, self.y_test = load_test_data(
-            num_inputs=self.state_dim + 1, data_path=self.path_test_data
+            joint=self.gp_config["joint"],
+            num_inputs=self.state_dim + 1,
+            data_path=self.path_test_data,
         )
         # angle (goal) generation offset from bounds, normalized
         self.angle_goal_offset = 5 * np.pi / 180 / self.std_states[0]

@@ -11,6 +11,7 @@ def get_gp_train_config():
         "force_cpu": False,
         "force_train": False,
         "num_tasks": 1,
+        "joint": "boom",
     }
 
 

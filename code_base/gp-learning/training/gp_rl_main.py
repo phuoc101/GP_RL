@@ -16,6 +16,7 @@ def get_configs(opts):
         "force_train": opts.force_train_gp,
         "force_cpu": opts.force_cpu,
         "num_tasks": opts.num_states,
+        "joint": opts.joint,
     }
     # set controller config
     controller_config = configs.get_controller_config()
@@ -96,6 +97,7 @@ if __name__ == "__main__":
     parser.add_argument("--goal-distr", default="full", help="distribution of generated nondeterministic goal") # noqa
     parser.add_argument("--verbose", default="DEBUG", help="logging verbosity (DEBUG, INFO, WARNING, ERROR)") # noqa
     parser.add_argument("--plot-mc", action="store_true", help="Plot MC at the end for visualization") # noqa
+    parser.add_argument("--joint", default="boom", help="Joint to control (boom, bucket, telescope)") # noqa
     # fmt: on
     opts = parser.parse_args()
     logger.remove()

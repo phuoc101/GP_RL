@@ -23,9 +23,9 @@ def generate_launch_description():
     default_rviz_config_path = os.path.join(pkg_share, "rviz/urdf_config.rviz")
 
     training_data = os.path.join(control_pkg_share, "data", "avant_TrainingData.pkl")
-    model_data = os.path.join(control_pkg_share, "results", "gp", "GPmodel.pkl")
+    model_data = os.path.join(control_pkg_share, "results", "gp/")
     controller_data = os.path.join(
-        control_pkg_share, "results", "controller", "_all.pkl"
+        control_pkg_share, "results", "controller/",
     )
 
     dft_training_model = LaunchConfiguration("path_to_training_data")

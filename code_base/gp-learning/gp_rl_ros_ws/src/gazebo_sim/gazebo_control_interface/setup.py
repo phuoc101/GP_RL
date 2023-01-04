@@ -26,14 +26,10 @@ setup(
         (os.path.join("share", package_gazebo, "config"), glob("config/*.yaml")),
         (os.path.join("share", package_gazebo, "data"), glob("data/*.pkl")),
         (os.path.join("share", package_gazebo, "results/gp"), glob("results/gp/*.pkl")),
-        (
-            os.path.join("share", package_gazebo, "results/controller"),
-            glob("results/controller/*.pkl"),
-        ),
-        (
-            os.path.join("share", package_gazebo, "models"),
-            glob("gp_rl/models/*.py"),
-        ),
+        (os.path.join("share", package_gazebo, "results/controller"), glob("results/controller/boom/*.pkl"),),
+        (os.path.join("share", package_gazebo, "results/controller"), glob("results/controller/bucket/*.pkl"),),
+        (os.path.join("share", package_gazebo, "results/controller"), glob("results/controller/telescope/*.pkl"),),
+        (os.path.join("share", package_gazebo, "models"), glob("gp_rl/models/*.py"),),
     ],
     install_requires=["setuptools"],
     zip_safe=True,

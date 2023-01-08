@@ -1,0 +1,4 @@
+# ignore symlinks
+data
+gp_rl
+results

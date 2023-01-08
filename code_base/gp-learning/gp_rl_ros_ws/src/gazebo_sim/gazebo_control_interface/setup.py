@@ -43,6 +43,7 @@ setup(
             "control_client = gazebo_control_interface.gazebo_control_client:main",
             "control_client_gp_node = gazebo_control_interface.gp_control_node:main",
             "pose_control_node = gazebo_control_interface.pose_control_node:main",
+            "real_avant_control_node = gazebo_control_interface.control_rl_machine:main"
         ],
     },
 )

@@ -14,32 +14,6 @@ def get_gp_train_config():
     }
 
 
-def get_gp_train_config_bucket():
-    return {
-        "gp_training_iter": 500,
-        "target_state": np.array([0, 0]),
-        "torch_output": True,
-        "normalize_train": False,
-        "force_cpu": False,
-        "force_train": False,
-        "num_tasks": 1,
-        "joint": "bucket",
-    }
-
-
-def get_gp_train_config_telescope():
-    return {
-        "gp_training_iter": 500,
-        "target_state": np.array([0, 0]),
-        "torch_output": True,
-        "normalize_train": False,
-        "force_cpu": False,
-        "force_train": False,
-        "num_tasks": 1,
-        "joint": "telescope",
-    }
-
-
 def get_controller_config():
     return {
         "state_dim": 2,  # number of observations

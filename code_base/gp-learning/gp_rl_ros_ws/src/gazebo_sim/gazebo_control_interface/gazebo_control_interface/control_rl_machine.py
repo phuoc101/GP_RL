@@ -33,7 +33,7 @@ from pathlib import Path
 from rclpy.time import Time
 from ament_index_python import get_package_share_path
 
-from gp_rl.cfg.configs import get_gp_train_config, get_gp_train_config_bucket, get_gp_train_config_telescope
+from gp_rl.cfg.configs import get_gp_train_config
 from gp_rl.models.GPModel import GPModel
 from gp_rl.utils.data_loading import load_data
 from gp_rl.utils.torch_utils import to_gpu, get_tensor
@@ -139,23 +139,29 @@ class SteeringActionClient(Node):
         self.control_dim = self.get_parameter("control_dim").value
 
         self.model, self.gpmodel_bucket, self.gpmodel_telescope = self.init_model()
-        self.controller, self.controller_bucket, self.controller_telescope = self.init_controller()
+        (
+            self.controller,
+            self.controller_bucket,
+            self.controller_telescope,
+        ) = self.init_controller()
 
         # ros2 subscibers and publishers
 
-        self.manipulator_state = self.create_subscription(JointState, "bag_joint_states", self.manipulator_state_callback, 10)
+        self.manipulator_state = self.create_subscription(
+            JointState, "bag_joint_states", self.manipulator_state_callback, 10
+        )
 
         self.manipulator_speed_publisher = self.create_publisher(
             JointState, "manipulator_commands", 10
-        ) # TODO: this to jointstate for real machine!
-        
+        )  # TODO: this to jointstate for real machine!
 
-        self.state_publisher = self.create_publisher(JointState, "/states", 10) # for debugging
-        
+        self.state_publisher = self.create_publisher(
+            JointState, "/states", 10
+        )  # for debugging
+
         self.pose_topic = self.create_subscription(
             JointState, "boom_pose", self.wanted_pos_callback, 10
         )
-
 
         self.prev_pose = None
         self.prev_time = None
@@ -198,11 +204,14 @@ class SteeringActionClient(Node):
         initialize gp model
         """
 
-        gpmodel_boom = GPModel(**get_gp_train_config())
+        gpmodel_boom_cfg = get_gp_train_config()
+        gpmodel_boom_cfg["joint"] = "boom"
+        gpmodel_boom = GPModel(**gpmodel_boom_cfg)
         gpmodel_boom.initialize_model(
             path_model=self.get_parameter("path_to_model_data")
             .get_parameter_value()
-            .string_value + "GPmodel_boom.pkl",
+            .string_value
+            + "GPmodel_boom.pkl",
             # uncomment the lines below for retraining
             path_train_data=self.get_parameter("path_to_training_data")
             .get_parameter_value()
@@ -210,11 +219,14 @@ class SteeringActionClient(Node):
             force_train=self.get_parameter("force_train_gp").value,
         )
 
-        gpmodel_bucket = GPModel(**get_gp_train_config_bucket())
+        gpmodel_bucket_cfg = get_gp_train_config()
+        gpmodel_bucket_cfg["joint"] = "bucket"
+        gpmodel_bucket = GPModel(**gpmodel_bucket_cfg)
         gpmodel_bucket.initialize_model(
             path_model=self.get_parameter("path_to_model_data")
             .get_parameter_value()
-            .string_value + "GPmodel_bucket.pkl",
+            .string_value
+            + "GPmodel_bucket.pkl",
             # uncomment the lines below for retraining
             path_train_data=self.get_parameter("path_to_training_data")
             .get_parameter_value()
@@ -222,11 +234,14 @@ class SteeringActionClient(Node):
             force_train=self.get_parameter("force_train_gp").value,
         )
 
-        gpmodel_telescope = GPModel(**get_gp_train_config_telescope())
+        gpmodel_telescope_cfg = get_gp_train_config()
+        gpmodel_telescope_cfg["joint"] = "telescope"
+        gpmodel_telescope = GPModel(**gpmodel_telescope_cfg)
         gpmodel_telescope.initialize_model(
             path_model=self.get_parameter("path_to_model_data")
             .get_parameter_value()
-            .string_value + "GPmodel_telescope.pkl",
+            .string_value
+            + "GPmodel_telescope.pkl",
             # uncomment the lines below for retraining
             path_train_data=self.get_parameter("path_to_training_data")
             .get_parameter_value()
@@ -239,21 +254,24 @@ class SteeringActionClient(Node):
     def init_controller(self):
         # boom
         controller_data = load_data(
-            self.get_parameter("controller_data").get_parameter_value().string_value + "_all_boom.pkl"
+            self.get_parameter("controller_data").get_parameter_value().string_value
+            + "_all_boom.pkl"
         )
         controller = self.get_best_controller(controller_data)
         to_gpu(controller)
 
-        # bucket 
+        # bucket
         controller_data = load_data(
-            self.get_parameter("controller_data").get_parameter_value().string_value + "_all_bucket.pkl"
+            self.get_parameter("controller_data").get_parameter_value().string_value
+            + "_all_bucket.pkl"
         )
         controller_bucket = self.get_best_controller(controller_data)
         to_gpu(controller)
 
         # telescope
         controller_data = load_data(
-            self.get_parameter("controller_data").get_parameter_value().string_value + "_all_telescope.pkl"
+            self.get_parameter("controller_data").get_parameter_value().string_value
+            + "_all_telescope.pkl"
         )
         controller_telescope = self.get_best_controller(controller_data)
         to_gpu(controller)
@@ -279,7 +297,7 @@ class SteeringActionClient(Node):
         args:
             msg JoinState: position and velocities for each moving joint in the machine
         """
-        
+
         self.boom = msg.position[2]
         self.bucket_pose = msg.position[3]
         self.telescope_pose = msg.position[7]
@@ -333,7 +351,7 @@ class SteeringActionClient(Node):
         )
 
         valve_bucket_cmd = M_instance[:, -1, 0].item()
-        
+
         # telescope
 
         init_state = np.array(self.telescope_pose)
@@ -358,7 +376,11 @@ class SteeringActionClient(Node):
         # send control
 
         mani_speed_msg_out = JointState()
-        mani_speed_msg_out.velocity = [valve_boom_cmd, valve_bucket_cmd, valve_telescope_cmd]
+        mani_speed_msg_out.velocity = [
+            valve_boom_cmd,
+            valve_bucket_cmd,
+            valve_telescope_cmd,
+        ]
         self.manipulator_speed_publisher.publish(mani_speed_msg_out)
 
         # keep track of msg time, if more than timeout then stop manipulator

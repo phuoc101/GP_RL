@@ -42,11 +42,7 @@ from pathlib import Path
 from rclpy.time import Time
 from ament_index_python import get_package_share_path
 
-from gp_rl.cfg.configs import (
-    get_gp_train_config,
-    get_gp_train_config_bucket,
-    get_gp_train_config_telescope,
-)
+from gp_rl.cfg.configs import get_gp_train_config
 from gp_rl.models.GPModel import GPModel
 from gp_rl.utils.data_loading import load_data
 from gp_rl.utils.torch_utils import to_gpu, get_tensor
@@ -239,7 +235,9 @@ class SteeringActionClient(Node):
         initialize gp model
         """
 
-        gpmodel_boom = GPModel(**get_gp_train_config())
+        gpmodel_boom_cfg = get_gp_train_config()
+        gpmodel_boom_cfg["joint"] = "boom"
+        gpmodel_boom = GPModel(**gpmodel_boom_cfg)
         gpmodel_boom.initialize_model(
             path_model=self.get_parameter("path_to_model_data")
             .get_parameter_value()
@@ -252,7 +250,9 @@ class SteeringActionClient(Node):
             force_train=self.get_parameter("force_train_gp").value,
         )
 
-        gpmodel_bucket = GPModel(**get_gp_train_config_bucket())
+        gpmodel_bucket_cfg = get_gp_train_config()
+        gpmodel_bucket_cfg["joint"] = "bucket"
+        gpmodel_bucket = GPModel(**gpmodel_bucket_cfg)
         gpmodel_bucket.initialize_model(
             path_model=self.get_parameter("path_to_model_data")
             .get_parameter_value()
@@ -265,7 +265,9 @@ class SteeringActionClient(Node):
             force_train=self.get_parameter("force_train_gp").value,
         )
 
-        gpmodel_telescope = GPModel(**get_gp_train_config_telescope())
+        gpmodel_telescope_cfg = get_gp_train_config()
+        gpmodel_telescope_cfg["joint"] = "telescope"
+        gpmodel_telescope = GPModel(**gpmodel_telescope_cfg)
         gpmodel_telescope.initialize_model(
             path_model=self.get_parameter("path_to_model_data")
             .get_parameter_value()

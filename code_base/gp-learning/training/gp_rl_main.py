@@ -53,6 +53,7 @@ def get_configs(opts):
         "Tf": opts.tf,
         "force_train_gp": opts.force_train_gp,
         "train_single_controller": opts.train_single_controller,
+        "dt": opts.dt,
         # load gp and controller configs
         "gp_config": gp_config,
         "controller_config": controller_config,
@@ -86,6 +87,7 @@ if __name__ == "__main__":
     parser.add_argument("--gp-training-iter", type=int, default=500, help="Max number of iterations to train GP model") # noqa
     parser.add_argument("--trial-max-iter", type=int, default=20, help="Max number of iterations per trials") # noqa
     parser.add_argument("--learning-rate", type=float, default=0.01, help="Controller's training learning rate") # noqa
+    parser.add_argument("--dt", type=float, default=0.1, help="Sampling time") # noqa
     parser.add_argument("--control-dim", type=int, default=1, help="Action space dimension") # noqa
     parser.add_argument("--gpmodel", default="./results/gp/GPmodel.pkl", help="Pretrained GP model") # noqa
     parser.add_argument("--optimizer", default="Adam", help="Optimizer type") # noqa

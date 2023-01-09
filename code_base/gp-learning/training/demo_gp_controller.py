@@ -49,7 +49,7 @@ def main(opts):
     gpmodel.initialize_model(
         path_model="./results/gp/GPmodel_{}.pkl".format(opts.joint),
         # uncomment the lines below for retraining
-        # path_train_data="../data/boom_trial_6_10hz.pkl",
+        # path_train_data=opts.train_gp_data,
         # force_train=opts.force_train_gp,
     )
     # =====RUN GP MODEL FOR 1 INSTANCE========#
@@ -69,7 +69,12 @@ def main(opts):
 
     # ========TEST GP_MODEL OVER TEST SET====== #
     if opts.visualize_gp:
-        plot_gp(gpmodel, test_data="../data/boom_trial_1_10hz.pkl", num_states=2)
+        plot_gp(
+            gpmodel,
+            joint=opts.joint,
+            test_data=opts.test_gp_data,
+            num_states=2,
+        )
     logger.info("GP model loaded")
 
     # ========LOAD CONTROLLER========== #
@@ -144,6 +149,8 @@ if __name__ == "__main__":
     parser.add_argument("--visualize-gp", action="store_true", help="Visualize GP")  # noqa
     parser.add_argument("--force-train-gp", action="store_true", help="Force train GP Model again")  # noqa
     parser.add_argument("--joint", default="boom", type=str, help="Joint to control (boom, bucket, telescope)")  # noqa
+    parser.add_argument("--train-gp-data", default="../data/boom_trial_6_10hz.pkl", type=str, help="Joint to control (boom, bucket, telescope)")  # noqa
+    parser.add_argument("--test-gp-data", default="../data/boom_trial_1_10hz.pkl", type=str, help="Joint to control (boom, bucket, telescope)")  # noqa
     parser.add_argument("--verbose", default="DEBUG", type=str, help="Verbosity level (INFO, DEBUG, WARNING, ERROR)")  # noqa
     # fmt: on
     opts = parser.parse_args()

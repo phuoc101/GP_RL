@@ -299,9 +299,16 @@ def plot_MC_non_det(Tf, dt, target, x_lb, x_ub, M_trajs_non_det, save_dir=None):
 
 
 def plot_gp(
-    gpmodel, test_data, num_states, device=torch.device("cuda:0"), dtype=torch.float32
+    gpmodel,
+    joint,
+    test_data,
+    num_states,
+    device=torch.device("cuda:0"),
+    dtype=torch.float32,
 ):
-    X_test, y_test = load_test_data(num_inputs=num_states, data_path=test_data)
+    X_test, y_test = load_test_data(
+        num_inputs=num_states, data_path=test_data, joint=joint
+    )
     X_test = X_test.to(device, dtype)
     y_test = y_test.to(device, dtype)
     pred_mean, pred_conf = gpmodel.eval(X_test, y_test)

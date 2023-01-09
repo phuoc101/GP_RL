@@ -13,6 +13,7 @@ def get_gp_train_config():
         "joint": "boom",
     }
 
+
 def get_gp_train_config_bucket():
     return {
         "gp_training_iter": 500,
@@ -24,6 +25,7 @@ def get_gp_train_config_bucket():
         "num_tasks": 1,
         "joint": "bucket",
     }
+
 
 def get_gp_train_config_telescope():
     return {
@@ -37,12 +39,14 @@ def get_gp_train_config_telescope():
         "joint": "telescope",
     }
 
+
 def get_controller_config():
     return {
         "state_dim": 2,  # number of observations
         "control_dim": 1,  # number of actions
         "controller_type": "NN",
         "NNlayers": [64, 64],
+        "input_lim": 1,
     }
 
 

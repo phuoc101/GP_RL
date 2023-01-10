@@ -4,8 +4,8 @@
 
 - Sample dataset for training GP:
 
-  - Training data: ![Training Data](../resources/training_data.png)
-  - Testing data:![Testing Data](../resources/training_data.png)
+  - Training data: ![Training Data](../imgs/training_data.png)
+  - Testing data:![Testing Data](../imgs/training_data.png)
   - Inputs X can be (pos, vel, u) or (pos, u)
   - Goal output y is $\Delta x$ , y1 discrete difference of pos, y2 discrete difference of velocity
   - X, Y normalized by mean and std_states $\frac{X-\mu}{std}$
@@ -29,7 +29,7 @@ observation_space = spaces.Box(low=-50.0, high=50.0, shape=(n_obs,), dtype="floa
 # Find optimal model hyperparameters
 self.model.train()
 self.likelihood.train()
-# Use the adam optimizer
+# Use the Adam optimizer
 optimizer = torch.optim.Adam(
 	[
 	# Includes all submodel and all likelihood parameters
@@ -107,7 +107,7 @@ self.X, self.Y, self.likelihood
 class BatchIndependentMultitaskGPModel(gpytorch.models.ExactGP)
 ```
 
-- ExactGP Model definition: ![](../resources/ExactGP.png)
+- ExactGP Model definition: ![](../imgs/ExactGP.png)
 
 ## Optimize policy
 

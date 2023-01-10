@@ -625,9 +625,6 @@ class SteeringActionClient(Node):
         boom_prediction = self.model.predict(model_input)
         vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value)
 
-        self.get_logger().info("Valve command is: {}".format(valve_cmd))
-        self.get_logger().info("Calculated boom velocity is: {}".format(vel.item()))
-        self.get_logger().info("Estimated boom velocity is: {}".format(self.boom_vel))
 
         # bucket
 
@@ -658,12 +655,6 @@ class SteeringActionClient(Node):
         )
         prediction = self.gpmodel_bucket.predict(model_input)
         vel_bucket = (prediction.mean[0][0]) / (self.get_parameter("dt").value)
-        self.get_logger().info(
-            "Calculated bucket velocity is: {}".format(vel_bucket.item())
-        )
-        self.get_logger().info(
-            "Estimated bucket velocity is: {}".format(self.bucket_vel)
-        )
 
         # telescope
 
@@ -692,12 +683,6 @@ class SteeringActionClient(Node):
         model_input = model_input.to(self.model.device, self.model.dtype)
         prediction = self.gpmodel_telescope.predict(model_input)
         vel_telescope = (prediction.mean[0][0]) / (self.get_parameter("dt").value)
-        self.get_logger().info(
-            "Calculated telescope velocity is: {}".format(vel_telescope.item())
-        )
-        self.get_logger().info(
-            "Estimated telescope velocity is: {}".format(self.telescope_vel)
-        )
 
         # send control
 

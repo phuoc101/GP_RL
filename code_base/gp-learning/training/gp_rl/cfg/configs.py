@@ -3,7 +3,6 @@ import numpy as np
 
 def get_gp_train_config():
     return {
-        "model_name": "GPModel-v1",  # simulation time step - seconds
         "gp_training_iter": 500,
         "target_state": np.array([0, 0]),
         "torch_output": True,
@@ -11,6 +10,7 @@ def get_gp_train_config():
         "force_cpu": False,
         "force_train": False,
         "num_tasks": 1,
+        "joint": "boom",
     }
 
 
@@ -20,6 +20,7 @@ def get_controller_config():
         "control_dim": 1,  # number of actions
         "controller_type": "NN",
         "NNlayers": [64, 64],
+        "input_lim": 1,
     }
 
 

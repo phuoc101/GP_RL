@@ -16,6 +16,7 @@ def get_configs(opts):
         "force_train": opts.force_train_gp,
         "force_cpu": opts.force_cpu,
         "num_tasks": opts.num_states,
+        "joint": opts.joint,
     }
     # set controller config
     controller_config = configs.get_controller_config()
@@ -25,6 +26,7 @@ def get_configs(opts):
         "force_cpu": opts.force_cpu,
         "state_dim": opts.num_states,
         "control_dim": opts.control_dim,
+        "input_lim": opts.input_lim,
     }
     # set optimizer config
     config = configs.get_optimizer_config()
@@ -52,6 +54,7 @@ def get_configs(opts):
         "Tf": opts.tf,
         "force_train_gp": opts.force_train_gp,
         "train_single_controller": opts.train_single_controller,
+        "dt": opts.dt,
         # load gp and controller configs
         "gp_config": gp_config,
         "controller_config": controller_config,
@@ -72,8 +75,8 @@ def main(opts):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # fmt: off
-    parser.add_argument("--train-data", default="../data/boom_xu_trial6_10hz.pkl", help="Path to training dataset")  # noqa
-    parser.add_argument("--test-data", default="../data/boom_xu_trial3_10hz.pkl", help="Path to test dataset")  # noqa
+    parser.add_argument("--train-data", default="../data/boom_trial6_10hz.pkl", help="Path to training dataset")  # noqa
+    parser.add_argument("--test-data", default="../data/boom_trial3_10hz.pkl", help="Path to test dataset")  # noqa
     parser.add_argument("--controller-type", default="NN", help="Type of controller (Linear or NN)") # noqa
     parser.add_argument("--num-states", type=int, default=1, help="Number of tasks: 2 for xv and 1 for x") # noqa
     parser.add_argument("--tf", type=int, default=10, help="Maximum time for 1 trial") # noqa
@@ -85,6 +88,8 @@ if __name__ == "__main__":
     parser.add_argument("--gp-training-iter", type=int, default=500, help="Max number of iterations to train GP model") # noqa
     parser.add_argument("--trial-max-iter", type=int, default=20, help="Max number of iterations per trials") # noqa
     parser.add_argument("--learning-rate", type=float, default=0.01, help="Controller's training learning rate") # noqa
+    parser.add_argument("--dt", type=float, default=0.1, help="Sampling time") # noqa
+    parser.add_argument("--input-lim", type=float, default=1, help="Hard limit for input") # noqa
     parser.add_argument("--control-dim", type=int, default=1, help="Action space dimension") # noqa
     parser.add_argument("--gpmodel", default="./results/gp/GPmodel.pkl", help="Pretrained GP model") # noqa
     parser.add_argument("--optimizer", default="Adam", help="Optimizer type") # noqa
@@ -96,6 +101,7 @@ if __name__ == "__main__":
     parser.add_argument("--goal-distr", default="full", help="distribution of generated nondeterministic goal") # noqa
     parser.add_argument("--verbose", default="DEBUG", help="logging verbosity (DEBUG, INFO, WARNING, ERROR)") # noqa
     parser.add_argument("--plot-mc", action="store_true", help="Plot MC at the end for visualization") # noqa
+    parser.add_argument("--joint", default="boom", help="Joint to control (boom, bucket, telescope)") # noqa
     # fmt: on
     opts = parser.parse_args()
     logger.remove()

@@ -102,7 +102,10 @@ class SteeringActionClient(Node):
                 ("target_state", [0]),
                 ("force_train_gp", False),
                 ("logger_verbose", "DEBUG"),
-                ("path_to_training_data", "/home/teemu/data/boom_trial_6_10hz.pkl"),
+                (
+                    "path_to_training_data",
+                    "/home/teemu/data/boom_trial_6_10hz.pkl",
+                ),  # you need to use launch file to redeclare theses values to suit your workspace
                 ("path_to_model_data", "/home/teemu/results/gp/GPmodel.pkl"),
                 ("controller_data", "/home/teemu/results/controller/_all.pkl"),
             ],
@@ -147,8 +150,12 @@ class SteeringActionClient(Node):
         self.state_dim = self.get_parameter("state_dim").value
         self.control_dim = self.get_parameter("control_dim").value
 
-        self.model = self.init_model()
-        self.controller = self.init_controller()
+        self.model, self.gpmodel_bucket, self.gpmodel_telescope = self.init_model()
+        (
+            self.controller,
+            self.controller_bucket,
+            self.controller_telescope,
+        ) = self.init_controller()
         # action client is responsible for sending goals to the
         # joint_trajectory_controller which executes the joint command to the simulator model
 
@@ -183,6 +190,17 @@ class SteeringActionClient(Node):
 
         # msg definations
         self.state_msg_out = JointState()
+        # values for boom
+        self.state_msg_out.position.append(0.0)
+        self.state_msg_out.position.append(0.0)
+        self.state_msg_out.velocity.append(0.0)
+        self.state_msg_out.velocity.append(0.0)
+        # values for bucket
+        self.state_msg_out.position.append(0.0)
+        self.state_msg_out.position.append(0.0)
+        self.state_msg_out.velocity.append(0.0)
+        self.state_msg_out.velocity.append(0.0)
+        # values for telescope
         self.state_msg_out.position.append(0.0)
         self.state_msg_out.position.append(0.0)
         self.state_msg_out.velocity.append(0.0)
@@ -217,11 +235,14 @@ class SteeringActionClient(Node):
         initialize gp model
         """
 
-        gpmodel = GPModel(**get_gp_train_config())
-        gpmodel.initialize_model(
+        gpmodel_boom_cfg = get_gp_train_config()
+        gpmodel_boom_cfg["joint"] = "boom"
+        gpmodel_boom = GPModel(**gpmodel_boom_cfg)
+        gpmodel_boom.initialize_model(
             path_model=self.get_parameter("path_to_model_data")
             .get_parameter_value()
-            .string_value,
+            .string_value
+            + "GPmodel_boom.pkl",
             # uncomment the lines below for retraining
             path_train_data=self.get_parameter("path_to_training_data")
             .get_parameter_value()
@@ -229,16 +250,65 @@ class SteeringActionClient(Node):
             force_train=self.get_parameter("force_train_gp").value,
         )
 
-        return gpmodel
+        gpmodel_bucket_cfg = get_gp_train_config()
+        gpmodel_bucket_cfg["joint"] = "bucket"
+        gpmodel_bucket = GPModel(**gpmodel_bucket_cfg)
+        gpmodel_bucket.initialize_model(
+            path_model=self.get_parameter("path_to_model_data")
+            .get_parameter_value()
+            .string_value
+            + "GPmodel_bucket.pkl",
+            # uncomment the lines below for retraining
+            path_train_data=self.get_parameter("path_to_training_data")
+            .get_parameter_value()
+            .string_value,
+            force_train=self.get_parameter("force_train_gp").value,
+        )
+
+        gpmodel_telescope_cfg = get_gp_train_config()
+        gpmodel_telescope_cfg["joint"] = "telescope"
+        gpmodel_telescope = GPModel(**gpmodel_telescope_cfg)
+        gpmodel_telescope.initialize_model(
+            path_model=self.get_parameter("path_to_model_data")
+            .get_parameter_value()
+            .string_value
+            + "GPmodel_telescope.pkl",
+            # uncomment the lines below for retraining
+            path_train_data=self.get_parameter("path_to_training_data")
+            .get_parameter_value()
+            .string_value,
+            force_train=self.get_parameter("force_train_gp").value,
+        )
+
+        return gpmodel_boom, gpmodel_bucket, gpmodel_telescope
 
     def init_controller(self):
+        # boom
         controller_data = load_data(
             self.get_parameter("controller_data").get_parameter_value().string_value
+            + "_all_boom.pkl"
         )
         controller = self.get_best_controller(controller_data)
         to_gpu(controller)
+
+        # bucket
+        controller_data = load_data(
+            self.get_parameter("controller_data").get_parameter_value().string_value
+            + "_all_bucket.pkl"
+        )
+        controller_bucket = self.get_best_controller(controller_data)
+        to_gpu(controller)
+
+        # telescope
+        controller_data = load_data(
+            self.get_parameter("controller_data").get_parameter_value().string_value
+            + "_all_telescope.pkl"
+        )
+        controller_telescope = self.get_best_controller(controller_data)
+        to_gpu(controller)
+
         logger.info("controller model loaded")
-        return controller
+        return controller, controller_bucket, controller_telescope
 
     def get_best_controller(self, controller_data):
         """
@@ -339,22 +409,23 @@ class SteeringActionClient(Node):
                 telescope_msg.name.append("telescope")
                 telescope_msg.position.append(msg.position[i])
                 self.telescope_pose = msg.position[i]
+                self.telescope_vel = msg.velocity[i]
                 self.telescope_pub_.publish(telescope_msg)
 
             if name == "boom_angle":
                 self.boom_pose = msg.position[i]
                 if self.prev_pose is not None and self.prev_time is not None:
-                    self.boom_vel = (
-                        (self.boom_pose - self.prev_pose)
-                        / (curr_time - self.prev_time)
-                        * 10
+                    self.boom_vel = (self.boom_pose - self.prev_pose) / (
+                        curr_time - self.prev_time
                     )  # msg.velocity[i] * 10# scale the vel to match given vel
+                # self.boom_vel = msg.velocity[i]
                 self.prev_pose = self.boom_pose
                 self.prev_time = curr_time
 
             if name == "fork_angle":
                 self.bucket_pose = msg.position[i]
                 self.bucket_vel = msg.velocity[i]
+
         if self.prev_target_time is not None:
             real_curr_time = self.get_clock().now().nanoseconds / 1e9
             if real_curr_time - self.prev_target_time > TIMEOUT:
@@ -440,16 +511,32 @@ class SteeringActionClient(Node):
             msg (ROS2 JointState): JointState message containting the wanted values for
             the control the manipulator
         """
+        msg_out = Float64MultiArray()
+
         vel_boom = msg.velocity[BOOM]  # * self.gain_boom
         vel_tel = msg.velocity[TELESCOPE]
-        vel_bucket = msg.velocity[BUCKET] * self.gain_bucket
+        vel_bucket = msg.velocity[BUCKET]  # * self.gain_bucket
         command = torch.from_numpy(np.asarray([self.boom_pose, vel_boom])).float()
 
+        # boom
         model_input = torch.reshape(command, (1, 2))
         model_input = model_input.to(self.model.device, self.model.dtype)
         boom_prediction = self.model.predict(model_input)
 
-        msg_out = Float64MultiArray()
+        # bucket
+        model_input = torch.reshape(
+            torch.from_numpy(np.asarray([self.bucket_pose, vel_bucket])).float(), (1, 2)
+        )
+        model_input = model_input.to(self.model.device, self.model.dtype)
+        bucket_prediction = self.gpmodel_bucket.predict(model_input)
+
+        # telescope
+
+        model_input = torch.reshape(
+            torch.from_numpy(np.asarray([self.telescope_pose, vel_tel])).float(), (1, 2)
+        )
+        model_input = model_input.to(self.model.device, self.model.dtype)
+        tel_prediction = self.gpmodel_bucket.predict(model_input)
 
         # check if the manipulator joint can move to the given direction to avoid joint
         # conflict with velocities
@@ -469,26 +556,33 @@ class SteeringActionClient(Node):
             vel_bucket = 0.0
 
         vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value)
+        vel_bucket = (bucket_prediction.mean[0][0]) / (self.get_parameter("dt").value)
+        vel_telescope = (tel_prediction.mean[0][0]) / (self.get_parameter("dt").value)
 
         # Send velocity to the ros2 controller which will move the joints
 
-        self.get_logger().info("valve cmd: {} \n".format(vel_boom))
-        self.get_logger().info(
-            "predicted pos: {} \n".format(boom_prediction.mean[0][0])
-        )
-        self.get_logger().info("boom pose: {} \n".format(self.boom_pose))
-        self.get_logger().info("calculated vel: {} \n".format(self.boom_vel))
-        self.get_logger().info("estimated vel: {} \n".format(vel.item()))
-        # float(boom_vel.mean[0][1]),
-
+        # boom
         self.state_msg_out.position[0] = self.boom_pose
         self.state_msg_out.position[1] = boom_prediction.mean[0][0]
         self.state_msg_out.velocity[0] = self.boom_vel
         self.state_msg_out.velocity[1] = vel.item()
 
+        # bucket
+        self.state_msg_out.position[0] = self.bucket_pose
+        self.state_msg_out.position[1] = bucket_prediction.mean[0][0]
+        self.state_msg_out.velocity[0] = self.bucket_vel
+        self.state_msg_out.velocity[1] = vel_bucket.item()
+
+        # telescope
+
+        self.state_msg_out.position[0] = self.telescope_pose
+        self.state_msg_out.position[1] = tel_prediction.mean[0][0]
+        self.state_msg_out.velocity[0] = self.telescope_vel
+        self.state_msg_out.velocity[1] = vel_telescope.item()
+
         self.state_publisher.publish(self.state_msg_out)
 
-        msg_out.data = [vel.item(), vel_tel, vel_bucket]
+        msg_out.data = [vel.item(), vel_telescope.item(), vel_bucket.item()]
 
         self.manipulator_speed_publisher.publish(msg_out)
 
@@ -504,6 +598,7 @@ class SteeringActionClient(Node):
             msg Jointstate: pos [1]
         """
 
+        # boom
         init_state = np.array(self.boom_pose)
         target_state = get_tensor(np.array(target_msg.position[BOOM]))
 
@@ -522,9 +617,6 @@ class SteeringActionClient(Node):
         )
 
         valve_cmd = M_instance[:, -1, 0].item()
-        self.get_logger().info(
-            "estimated vel according to controller is: {}".format(valve_cmd)
-        )
 
         command = torch.from_numpy(np.asarray([self.boom_pose, valve_cmd])).float()
 
@@ -533,14 +625,93 @@ class SteeringActionClient(Node):
         boom_prediction = self.model.predict(model_input)
         vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value)
 
+
+        # bucket
+
+        init_state = np.array(self.bucket_pose)
+        target_state = get_tensor(np.array(target_msg.position[BUCKET]))
+
+        M_instance = (
+            calc_realization_mean(
+                gp_model=self.gpmodel_bucket,
+                controller=self.controller_bucket,
+                state_dim=self.state_dim,
+                control_dim=self.control_dim,
+                dt=0.1,
+                init_state=init_state,
+                target_state=target_state,
+            )
+            .cpu()
+            .numpy()
+        )
+
+        valve_cmd = M_instance[:, -1, 0].item()
+
+        command = torch.from_numpy(np.asarray([self.bucket_pose, valve_cmd])).float()
+
+        model_input = torch.reshape(command, (1, 2))
+        model_input = model_input.to(
+            self.gpmodel_bucket.device, self.gpmodel_bucket.dtype
+        )
+        prediction = self.gpmodel_bucket.predict(model_input)
+        vel_bucket = (prediction.mean[0][0]) / (self.get_parameter("dt").value)
+
+        # telescope
+
+        init_state = np.array(self.telescope_pose)
+        target_state = get_tensor(np.array(target_msg.position[TELESCOPE]))
+
+        M_instance = (
+            calc_realization_mean(
+                gp_model=self.gpmodel_telescope,
+                controller=self.controller_telescope,
+                state_dim=self.state_dim,
+                control_dim=self.control_dim,
+                dt=0.1,
+                init_state=init_state,
+                target_state=target_state,
+            )
+            .cpu()
+            .numpy()
+        )
+
+        valve_cmd = M_instance[:, -1, 0].item()
+
+        command = torch.from_numpy(np.asarray([self.telescope_pose, valve_cmd])).float()
+
+        model_input = torch.reshape(command, (1, 2))
+        model_input = model_input.to(self.model.device, self.model.dtype)
+        prediction = self.gpmodel_telescope.predict(model_input)
+        vel_telescope = (prediction.mean[0][0]) / (self.get_parameter("dt").value)
+
+        # send control
+
         mani_speed_msg_out = Float64MultiArray()
-        mani_speed_msg_out.data = [vel.item(), 0.0, 0.0]
+        mani_speed_msg_out.data = [
+            vel.item() * 10,
+            vel_telescope.item(),
+            vel_bucket.item(),
+        ]
         self.manipulator_speed_publisher.publish(mani_speed_msg_out)
 
+        # boom
         self.state_msg_out.position[0] = self.boom_pose
         self.state_msg_out.position[1] = target_msg.position[BOOM]
         self.state_msg_out.velocity[0] = self.boom_vel
-        self.state_msg_out.velocity[1] = M_instance[:, -1, 0].item()
+        self.state_msg_out.velocity[1] = vel.item()
+
+        # bucket
+        self.state_msg_out.position[2] = self.bucket_pose
+        self.state_msg_out.position[3] = target_msg.position[BUCKET]
+        self.state_msg_out.velocity[2] = self.bucket_vel
+        self.state_msg_out.velocity[3] = vel_bucket.item()
+
+        # telescope
+
+        self.state_msg_out.position[4] = self.telescope_pose
+        self.state_msg_out.position[5] = target_msg.position[TELESCOPE]
+        self.state_msg_out.velocity[4] = self.telescope_vel
+        self.state_msg_out.velocity[5] = vel_telescope.item()
 
         self.state_publisher.publish(self.state_msg_out)
 

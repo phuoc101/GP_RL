@@ -14,7 +14,29 @@ def save_data(file, data):
         pickle.dump(data, f)
 
 
-def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=False):
+def get_Xy(joint, data, num_inputs):
+    j = -1
+    if joint == "boom":
+        j = 0
+    elif joint == "bucket":
+        j = 1
+    elif joint == "telescope":
+        j = 2
+    if j != -1:
+        if num_inputs == 3:
+            X = data["X1_xvu"][j, :, :]
+            y = np.vstack((data["Y1"][j, :], data["Y2"][j, :])).T
+        elif num_inputs == 2:
+            X = data["X1_xu"][j, :, :]
+            y = np.vstack(data["Y1"][j, :])
+        return X, y
+    else:
+        raise AttributeError("Invalid joint value")
+
+
+def load_training_data(
+    data_path, num_inputs=3, joint="boom", output_torch=True, normalize=False
+):
     """
     call this to load <training_data>.pkl that was saved in processing
     - normalizes data
@@ -25,12 +47,7 @@ def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=Fal
     """
     training_data = load_data(file=data_path)
     # Get X, Y based on num of inputs (to GP)
-    if num_inputs == 3:
-        X = training_data["X1_xvu"]
-        y = np.vstack((training_data["Y1"], training_data["Y2"])).T
-    elif num_inputs == 2:
-        X = training_data["X1_xu"]
-        y = np.vstack(training_data["Y1"])
+    X, y = get_Xy(joint=joint, data=training_data, num_inputs=num_inputs)
     logger.debug(f"Shape X_train: {X.shape}, Shape y_train: {y.shape}")
     # normalize X, Y
     mean_states, std_states = get_mean_std(X)
@@ -54,7 +71,9 @@ def load_training_data(data_path, num_inputs=3, output_torch=True, normalize=Fal
     return X, y, mean_states, std_states, x_lb, x_ub
 
 
-def load_test_data(data_path, num_inputs=3, output_torch=True, normalize=False):
+def load_test_data(
+    data_path, joint="boom", num_inputs=3, output_torch=True, normalize=False
+):
     """
     call this to load <test_data>.pkl that was saved in processing
     - normalizes data
@@ -64,12 +83,7 @@ def load_test_data(data_path, num_inputs=3, output_torch=True, normalize=False):
     """
     test_data = load_data(file=data_path)
     # Get X, Y based on num of inputs (to GP)
-    if num_inputs == 3:
-        X = test_data["X1_xvu"]
-        y = np.vstack((test_data["Y1"], test_data["Y2"])).T
-    elif num_inputs == 2:
-        X = test_data["X1_xu"]
-        y = np.vstack(test_data["Y1"])
+    X, y = get_Xy(joint=joint, data=test_data, num_inputs=num_inputs)
 
     logger.debug(f"Shape X_test: {X.shape}, Shape y_test: {y.shape}")
     # multiply inputs U

@@ -53,7 +53,7 @@ class Controller:
                     dtype=self.dtype,
                     bias=False,
                 ),
-                torch.nn.Hardtanh(),
+                torch.nn.Hardtanh(max_val=self.input_lim, min_val=-self.input_lim),
             )
         else:
             raise Exception("Unknown controller type {}".format(self.controller_type))

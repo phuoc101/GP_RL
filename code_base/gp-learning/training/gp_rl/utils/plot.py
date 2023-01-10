@@ -49,7 +49,7 @@ def plot_reward(x_lb, x_ub, file_path, get_reward):
     logger.info("reward plot saved to {}".format(file_path))
 
 
-def plot_policy(controller, x_lb, x_ub, policy_log_dir, trial=1):
+def plot_policy(joint, controller, x_lb, x_ub, policy_log_dir, trial=1):
     n_x = 100
     # calc normalized 2Dmap
     # (
@@ -68,7 +68,10 @@ def plot_policy(controller, x_lb, x_ub, policy_log_dir, trial=1):
     ax.set_title(f"Policy Plot trial {trial}")
     ax.plot(inputs, actions.cpu().detach().numpy())
     os.makedirs(policy_log_dir, exist_ok=True)
-    plt.savefig(os.path.join(policy_log_dir, f"policy_plot_{trial}.png"), dpi=100)
+    plt.savefig(
+        os.path.join(policy_log_dir, "{}_policy_plot_{}.png".format(joint, trial)),
+        dpi=100,
+    )
     logger.info("policy plot saved...")
 
 
@@ -91,8 +94,8 @@ def plot_MC(Tf, dt, target, x_lb, x_ub, M_mean, M_trajs, save_dir=None):
     fig_u, ax_u = plt.subplots(1, 1)
     fig_pos.set_size_inches((7, 6))
 
-    time_vec = np.arange(0, dt * (M_trajs.shape[2]), dt)
-    time_vec_horizon = np.arange(0, Tf, dt)
+    time_vec = np.arange(0, dt * (M_trajs.shape[2]), dt)[0 : M_trajs.shape[2] - 2]
+    time_vec_horizon = np.arange(0, Tf, dt)[:-2]
     # one-time plots
     targetlineopt = "g--"
     targetlinewidth = 1.6
@@ -116,8 +119,8 @@ def plot_MC(Tf, dt, target, x_lb, x_ub, M_mean, M_trajs, save_dir=None):
             lineopt = "r-"  # red line (nominal)
             zo = 20  # zorder (top plot layer)
             default_alpha = 0.9
-            x_data = M_mean[0, 0, :]
-            u_data = M_mean[0, -1, :]
+            x_data = M_mean[0, 0, :-2]
+            u_data = M_mean[0, -1, :-2]
             ax_pos.plot(
                 time_vec,
                 x_data,
@@ -135,8 +138,8 @@ def plot_MC(Tf, dt, target, x_lb, x_ub, M_mean, M_trajs, save_dir=None):
                 label="Mean input",
             )
         else:
-            x_data = M_trajs[k, 0, :]
-            u_data = M_trajs[k, -1, :]
+            x_data = M_trajs[k, 0, :-2]
+            u_data = M_trajs[k, -1, :-2]
             lineopt = "b-"  # blue line (Monte Carlo M_trajs)
             zo = 0  # zorder (lowest plot layer)
             default_alpha = 0.01
@@ -216,8 +219,10 @@ def plot_MC_non_det(Tf, dt, target, x_lb, x_ub, M_trajs_non_det, save_dir=None):
     fig_u, ax_u = plt.subplots(1, 1)
     fig_pos.set_size_inches((7, 6))
 
-    time_vec = np.arange(0, dt * (M_trajs_non_det.shape[2]), dt)
-    time_vec_horizon = np.arange(0, Tf, dt)
+    time_vec = np.arange(0, dt * (M_trajs_non_det.shape[2]), dt)[
+        0 : M_trajs_non_det.shape[2] - 2
+    ]
+    time_vec_horizon = np.arange(0, Tf, dt)[:-2]
     # one-time plots
     targetlineopt = "g--"
     targetlinewidth = 1.6
@@ -237,8 +242,8 @@ def plot_MC_non_det(Tf, dt, target, x_lb, x_ub, M_trajs_non_det, save_dir=None):
     # Monte Carlo trajectories
     total_realizations = M_trajs_non_det.shape[0]  # + mean trajectory
     for k in range(total_realizations):
-        x_data = M_trajs_non_det[k, 0, :]
-        u_data = M_trajs_non_det[k, -1, :]
+        x_data = M_trajs_non_det[k, 0, :-2]
+        u_data = M_trajs_non_det[k, -1, :-2]
         # lineopt = "b-"  # blue line (Monte Carlo M_trajs)
         zo = 0  # zorder (lowest plot layer)
         default_alpha = 0.5
@@ -294,9 +299,16 @@ def plot_MC_non_det(Tf, dt, target, x_lb, x_ub, M_trajs_non_det, save_dir=None):
 
 
 def plot_gp(
-    gpmodel, test_data, num_states, device=torch.device("cuda:0"), dtype=torch.float32
+    gpmodel,
+    joint,
+    test_data,
+    num_states,
+    device=torch.device("cuda:0"),
+    dtype=torch.float32,
 ):
-    X_test, y_test = load_test_data(num_inputs=num_states, data_path=test_data)
+    X_test, y_test = load_test_data(
+        num_inputs=num_states, data_path=test_data, joint=joint
+    )
     X_test = X_test.to(device, dtype)
     y_test = y_test.to(device, dtype)
     pred_mean, pred_conf = gpmodel.eval(X_test, y_test)

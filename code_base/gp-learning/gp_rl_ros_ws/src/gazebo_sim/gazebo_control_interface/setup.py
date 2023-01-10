@@ -26,14 +26,10 @@ setup(
         (os.path.join("share", package_gazebo, "config"), glob("config/*.yaml")),
         (os.path.join("share", package_gazebo, "data"), glob("data/*.pkl")),
         (os.path.join("share", package_gazebo, "results/gp"), glob("results/gp/*.pkl")),
-        (
-            os.path.join("share", package_gazebo, "results/controller"),
-            glob("results/controller/*.pkl"),
-        ),
-        (
-            os.path.join("share", package_gazebo, "models"),
-            glob("gp_rl/models/*.py"),
-        ),
+        (os.path.join("share", package_gazebo, "results/controller"), glob("results/controller/boom/*.pkl"),),
+        (os.path.join("share", package_gazebo, "results/controller"), glob("results/controller/bucket/*.pkl"),),
+        (os.path.join("share", package_gazebo, "results/controller"), glob("results/controller/telescope/*.pkl"),),
+        (os.path.join("share", package_gazebo, "models"), glob("gp_rl/models/*.py"),),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -47,6 +43,7 @@ setup(
             "control_client = gazebo_control_interface.gazebo_control_client:main",
             "control_client_gp_node = gazebo_control_interface.gp_control_node:main",
             "pose_control_node = gazebo_control_interface.pose_control_node:main",
+            "real_avant_control_node = gazebo_control_interface.control_rl_machine:main"
         ],
     },
 )

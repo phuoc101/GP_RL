@@ -45,6 +45,7 @@ class GPModel:
                     self.x_lb,
                     self.x_ub,
                 ) = load_training_data(
+                    joint=self.joint,
                     num_inputs=self.num_tasks + 1,  # +1 for u input
                     data_path=path_train_data,
                     output_torch=self.torch_output,

@@ -117,5 +117,5 @@ ros2 launch avant_description gp.launch.py
 - Open up another terminal and send the desired positions for the joints:
 
 ```bash
-ros2 topic pub -r 10 /boom_pose sensor_msgs/msg/JointState "{position: [0.5, 0.2, 0.4]}"
+ros2 topic pub -r 10 /goal_pose sensor_msgs/msg/JointState "{position: [0.5, 0.2, 0.4]}"
 ```

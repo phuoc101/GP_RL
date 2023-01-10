@@ -102,10 +102,9 @@ class SteeringActionClient(Node):
                 ("target_state", [0]),
                 ("force_train_gp", False),
                 ("logger_verbose", "DEBUG"),
-                (
-                    "path_to_training_data",
-                    "/home/teemu/data/boom_trial_6_10hz.pkl",
-                ),  # you need to use launch file to redeclare theses values to suit your workspace
+                # you need to use launch file to redeclare theses values to suit your
+                # workspace
+                ("path_to_training_data", "/home/teemu/data/boom_trial_6_10hz.pkl"),
                 ("path_to_model_data", "/home/teemu/results/gp/GPmodel.pkl"),
                 ("controller_data", "/home/teemu/results/controller/_all.pkl"),
             ],
@@ -157,7 +156,8 @@ class SteeringActionClient(Node):
             self.controller_telescope,
         ) = self.init_controller()
         # action client is responsible for sending goals to the
-        # joint_trajectory_controller which executes the joint command to the simulator model
+        # joint_trajectory_controller which executes the joint command to the simulator
+        # model
 
         # prediction_model = run_model_single_input()
 
@@ -181,7 +181,7 @@ class SteeringActionClient(Node):
             JointState, "manipulator_commands", self.manipulator_callback, 10
         )
         self.joint_state_sub = self.create_subscription(
-            JointState, "/boom_pose", self.wanted_pos_callback, 10
+            JointState, "/goal_pose", self.goal_pos_callback, 10
         )
         self.prev_pose = None
         self.prev_time = None
@@ -589,7 +589,7 @@ class SteeringActionClient(Node):
         # keep track of msg time, if more than timeout then stop manipulator
         self.prev_target_time = self.get_clock().now().nanoseconds / 1e9
 
-    def wanted_pos_callback(self, target_msg):
+    def goal_pos_callback(self, target_msg):
         """
         moves the robot boom manipulator to the wanted state according to the given
         command
@@ -624,7 +624,6 @@ class SteeringActionClient(Node):
         model_input = model_input.to(self.model.device, self.model.dtype)
         boom_prediction = self.model.predict(model_input)
         vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value)
-
 
         # bucket
 
@@ -684,8 +683,7 @@ class SteeringActionClient(Node):
         prediction = self.gpmodel_telescope.predict(model_input)
         vel_telescope = (prediction.mean[0][0]) / (self.get_parameter("dt").value)
 
-        # send control
-
+        # send manipulator control
         mani_speed_msg_out = Float64MultiArray()
         mani_speed_msg_out.data = [
             vel.item() * 10,
@@ -694,20 +692,19 @@ class SteeringActionClient(Node):
         ]
         self.manipulator_speed_publisher.publish(mani_speed_msg_out)
 
+        # Output state message
+        self.state_msg_out.header.stamp = self.get_clock().now().to_msg()
         # boom
         self.state_msg_out.position[0] = self.boom_pose
         self.state_msg_out.position[1] = target_msg.position[BOOM]
         self.state_msg_out.velocity[0] = self.boom_vel
         self.state_msg_out.velocity[1] = vel.item()
-
         # bucket
         self.state_msg_out.position[2] = self.bucket_pose
         self.state_msg_out.position[3] = target_msg.position[BUCKET]
         self.state_msg_out.velocity[2] = self.bucket_vel
         self.state_msg_out.velocity[3] = vel_bucket.item()
-
         # telescope
-
         self.state_msg_out.position[4] = self.telescope_pose
         self.state_msg_out.position[5] = target_msg.position[TELESCOPE]
         self.state_msg_out.velocity[4] = self.telescope_vel

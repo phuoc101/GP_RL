@@ -87,6 +87,11 @@ python gp_rl_main.py --verbose DEBUG --trials 5 --trial-max-iter 20\
   ```
 
 - The results are stored in `./code_base/gp-learning/training/results`
+- To visualize the results:
+  ```bash
+  python demo_gp_controller.py --verbose INFO --joint bucket --visualize-gp \
+      --test-gp-data ../data/bucket_trial_2_10hz.pkl --dt 0.1
+  ```
 
 # 🧰 Run the simulation
 

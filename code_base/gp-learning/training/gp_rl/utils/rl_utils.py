@@ -97,7 +97,7 @@ def calc_realizations(
     )
     # assign data to M, memory := sys.getsizeof(M.storage())
     M[:, :-1, 0] = state  # M[:,:,k] := torch.cat( (state, u), dim = 1)
-    logger.info("Starting Monte Carlo trajectory realization...")
+    logger.debug("Starting Monte Carlo trajectory realization...")
     t1 = time.perf_counter()
     # convert target state to tensor if not alr is
     if not isinstance(target_state, torch.Tensor):
@@ -123,7 +123,7 @@ def calc_realizations(
         M[:, :-1, k] = M[:, :-1, k - 1] + randtensor
 
     t_elapsed = time.perf_counter() - t1
-    logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
+    logger.debug(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
     # logger.debug(f"size of randomTensor is {randtensor.shape}")
     return M
 
@@ -165,7 +165,7 @@ def calc_realization_mean(
             device=device,
             dtype=dtype,
         )
-    logger.info("Starting mean trajectory realization...")
+    logger.debug("Starting mean trajectory realization...")
     t1 = time.perf_counter()
     for k in range(1, horizon + 1):
         # get u:  state -> controller -> u
@@ -177,7 +177,7 @@ def calc_realization_mean(
         # predict next state
         M[:, :-1, k] = M[:, :-1, k - 1] + px
     t_elapsed = time.perf_counter() - t1
-    logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
+    logger.debug(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
     return M
 
 
@@ -232,7 +232,7 @@ def calc_realizations_non_det_init(
             device=device,
             dtype=dtype,
         )
-    logger.info(
+    logger.debug(
         "Starting trajectory realization with non-deterministic initialization..."
     )
     t1 = time.perf_counter()
@@ -247,5 +247,5 @@ def calc_realizations_non_det_init(
         M[:, :-1, k] = M[:, :-1, k - 1] + px
 
     t_elapsed = time.perf_counter() - t1
-    logger.info(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
+    logger.debug(f"predictions completed... elapsed time: {t_elapsed:.2f}s")
     return M

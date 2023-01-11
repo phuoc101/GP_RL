@@ -151,7 +151,7 @@ class SteeringActionClient(Node):
 
         self.model, self.gpmodel_bucket, self.gpmodel_telescope = self.init_model()
         (
-            self.controller,
+            self.controller_boom,
             self.controller_bucket,
             self.controller_telescope,
         ) = self.init_controller()
@@ -288,8 +288,8 @@ class SteeringActionClient(Node):
             self.get_parameter("controller_data").get_parameter_value().string_value
             + "_all_boom.pkl"
         )
-        controller = self.get_best_controller(controller_data)
-        to_gpu(controller)
+        controller_boom = self.get_best_controller(controller_data)
+        to_gpu(controller_boom)
 
         # bucket
         controller_data = load_data(
@@ -297,7 +297,7 @@ class SteeringActionClient(Node):
             + "_all_bucket.pkl"
         )
         controller_bucket = self.get_best_controller(controller_data)
-        to_gpu(controller)
+        to_gpu(controller_bucket)
 
         # telescope
         controller_data = load_data(
@@ -305,10 +305,10 @@ class SteeringActionClient(Node):
             + "_all_telescope.pkl"
         )
         controller_telescope = self.get_best_controller(controller_data)
-        to_gpu(controller)
+        to_gpu(controller_telescope)
 
         logger.info("controller model loaded")
-        return controller, controller_bucket, controller_telescope
+        return controller_boom, controller_bucket, controller_telescope
 
     def get_best_controller(self, controller_data):
         """
@@ -555,7 +555,7 @@ class SteeringActionClient(Node):
         ):
             vel_bucket = 0.0
 
-        vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value)
+        vel_boom = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value)
         vel_bucket = (bucket_prediction.mean[0][0]) / (self.get_parameter("dt").value)
         vel_telescope = (tel_prediction.mean[0][0]) / (self.get_parameter("dt").value)
 
@@ -565,7 +565,7 @@ class SteeringActionClient(Node):
         self.state_msg_out.position[0] = self.boom_pose
         self.state_msg_out.position[1] = boom_prediction.mean[0][0]
         self.state_msg_out.velocity[0] = self.boom_vel
-        self.state_msg_out.velocity[1] = vel.item()
+        self.state_msg_out.velocity[1] = vel_boom.item()
 
         # bucket
         self.state_msg_out.position[0] = self.bucket_pose
@@ -582,7 +582,7 @@ class SteeringActionClient(Node):
 
         self.state_publisher.publish(self.state_msg_out)
 
-        msg_out.data = [vel.item(), vel_telescope.item(), vel_bucket.item()]
+        msg_out.data = [vel_boom.item(), vel_telescope.item(), vel_bucket.item()]
 
         self.manipulator_speed_publisher.publish(msg_out)
 
@@ -605,7 +605,7 @@ class SteeringActionClient(Node):
         M_instance = (
             calc_realization_mean(
                 gp_model=self.model,
-                controller=self.controller,
+                controller=self.controller_boom,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
                 dt=0.1,
@@ -624,6 +624,7 @@ class SteeringActionClient(Node):
         model_input = model_input.to(self.model.device, self.model.dtype)
         boom_prediction = self.model.predict(model_input)
         vel = (boom_prediction.mean[0][0]) / (self.get_parameter("dt").value)
+        logger.info(f"Boom valve cmd is {valve_cmd}")
 
         # bucket
 
@@ -654,6 +655,7 @@ class SteeringActionClient(Node):
         )
         prediction = self.gpmodel_bucket.predict(model_input)
         vel_bucket = (prediction.mean[0][0]) / (self.get_parameter("dt").value)
+        logger.info(f"Bucket valve cmd is {valve_cmd}")
 
         # telescope
 
@@ -682,6 +684,7 @@ class SteeringActionClient(Node):
         model_input = model_input.to(self.model.device, self.model.dtype)
         prediction = self.gpmodel_telescope.predict(model_input)
         vel_telescope = (prediction.mean[0][0]) / (self.get_parameter("dt").value)
+        logger.info(f"Telescope valve cmd is {valve_cmd}")
 
         # send manipulator control
         mani_speed_msg_out = Float64MultiArray()

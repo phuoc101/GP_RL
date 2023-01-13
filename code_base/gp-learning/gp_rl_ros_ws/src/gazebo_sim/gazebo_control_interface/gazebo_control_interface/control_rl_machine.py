@@ -298,8 +298,7 @@ class SteeringActionClient(Node):
         args:
             msg JoinState: position and velocities for each moving joint in the machine
         """
-
-        self.boom = msg.position[2]
+        self.boom_pose = msg.position[2]
         self.bucket_pose = msg.position[3]
         self.telescope_pose = msg.position[7]
 
@@ -322,7 +321,7 @@ class SteeringActionClient(Node):
                 controller=self.controller,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                dt=0.1,
+                dt=0.01,
                 init_state=init_state,
                 target_state=target_state,
             )
@@ -343,7 +342,7 @@ class SteeringActionClient(Node):
                 controller=self.controller_bucket,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                dt=0.1,
+                dt=0.01,
                 init_state=init_state,
                 target_state=target_state,
             )
@@ -364,7 +363,7 @@ class SteeringActionClient(Node):
                 controller=self.controller_telescope,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                dt=0.1,
+                dt=0.01,
                 init_state=init_state,
                 target_state=target_state,
             )

@@ -2,6 +2,11 @@ import numpy as np
 
 
 def get_gp_train_config():
+    """Generate GP model configuration
+
+    Returns:
+        Dict containing configuration for GP models
+    """
     return {
         "gp_training_iter": 500,
         "target_state": np.array([0, 0]),
@@ -15,6 +20,11 @@ def get_gp_train_config():
 
 
 def get_controller_config():
+    """Generate NN controller configuration
+
+    Returns:
+        Dict containing configuration for NN controller
+    """
     return {
         "state_dim": 2,  # number of observations
         "control_dim": 1,  # number of actions
@@ -25,6 +35,11 @@ def get_controller_config():
 
 
 def get_optimizer_config():
+    """Generate policy optimizer configuration
+
+    Returns:
+        Dict containing configuration for policy optimizer
+    """
     return {
         "state_dim": 1,  # number of observations
         "force_train_gp": False,

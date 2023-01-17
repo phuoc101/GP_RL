@@ -22,6 +22,7 @@ class Controller:
             set_device_cpu(self)
 
     def init_controller(self):
+        """Initialize the controller with parameters loaded from config dict"""
         if self.controller_type == "Linear":
             logger.info("initializing Linear controller")
             self.linear_model = torch.nn.Linear(

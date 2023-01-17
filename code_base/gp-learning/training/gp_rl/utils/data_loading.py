@@ -96,7 +96,12 @@ def load_test_data(
 
 
 def get_mean_std(X1):
-    # normalize the data from its own mean, std - use for first collected data
+    """normalize the data from its own mean, std - use for first collected data
+        X1: Input data
+
+    Returns:
+        The mean and standard deviation of the input data
+    """
     mean_states = np.mean(X1[:, :-1], 0)
     std_states = np.std(X1[:, :-1], 0)
     return mean_states, std_states
@@ -104,6 +109,15 @@ def get_mean_std(X1):
 
 # normalize the data given mean and std, use for new data
 def normalize_with_mean_std(X1, y1, mean_states, std_states):
+    """Normalize the data with given mean and standard deviation
+        X1 : Input data
+        y1 : Output data
+        mean_states : mean of input data
+        std_states : standard deviation of input
+
+    Returns:
+        Normalized input and output
+    """
     X = np.zeros(X1.shape)
     X[:, :-1] = np.divide(X1[:, :-1] - mean_states, std_states)
     X[:, -1] = X1[:, -1]  # control inputs are not normalised

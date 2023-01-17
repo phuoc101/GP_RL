@@ -428,6 +428,7 @@ class SteeringActionClient(Node):
 
         if self.prev_target_time is not None:
             real_curr_time = self.get_clock().now().nanoseconds / 1e9
+            # Stop manipulator if no targets are published
             if real_curr_time - self.prev_target_time > TIMEOUT:
                 self.prev_target_time = None
                 stop_command_msg = Float64MultiArray()

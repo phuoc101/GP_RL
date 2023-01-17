@@ -13,7 +13,15 @@ from gp_rl.utils.rl_utils import calc_realization_mean
 
 
 def get_best_controller(controller_data):
-    # ======CHOOSE CONTROLLER WITH LOWEST LOSS (HIGHEST REWARD)=====#
+    """Choose controller with the lowest loss (highest reward)
+
+    Args:
+        controller_data: Controller data loaded from pkl file generated
+        from training
+
+    Returns:
+        The controller from the trial that results in the lowest loss
+    """
     losses = []
     for controller in controller_data["all_optimizer_data"]:
         losses.append(controller["optimInfo"]["loss"][-1])
@@ -22,7 +30,12 @@ def get_best_controller(controller_data):
 
 
 def plot_response(M_mean, dt):
-    # =====PLOT RESPONSE OVER TF=====#
+    """Plot the system response over a period tf
+
+    Args:
+        M_mean: The realized trajectory, calculated from calc_realization_mean
+        dt: Sampling time
+    """
     time = np.arange(0, dt * (M_mean.shape[2]), dt)
     fig, ax = fig, ax = plt.subplots(2)
     ax[0].plot(time, M_mean[0, 0, :], label="positional error")

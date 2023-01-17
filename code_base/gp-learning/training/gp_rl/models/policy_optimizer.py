@@ -74,6 +74,11 @@ class PolicyOptimizer:
         # self.reset()
 
     def get_gp_model(self):
+        """Obtain GP model from config dict
+
+        Returns:
+            GP model of class GPModel
+        """
         model = GPModel(**self.gp_config)
         model.initialize_model(
             path_model=self.gpmodel,
@@ -83,11 +88,19 @@ class PolicyOptimizer:
         return model
 
     def get_controller(self):
+        """Obtain controller from config dict
+
+        Returns:
+            Controller in Controller class
+        """
         controller = Controller(**self.controller_config)
         model = controller.init_controller()
         return model
 
     def set_optimizer(self):
+        """
+        Choose optimizer type
+        """
         optimizing_method = self.optimizer_opts["optimizer"]
         if optimizing_method == "RMSprop":
             self.optimizer = torch.optim.RMSprop(
@@ -211,12 +224,12 @@ class PolicyOptimizer:
             all_optim_data,
         )
 
-    # calculate predictions+reward without having everything in one big tensor
     def opt_step_loss(self):
-        # n_trajectories = self.n_trajectories  # number of (parallel) trajectories
-        # initial state+u and concat
-        # state = torch.cat(n_trajectories * [self.obs_torch[None, :]], dim=0)
-        # state = torch.cat(self.obs_torch, dim=0)
+        """Calculate predictions+reward for one step
+
+        Returns:
+            reward and mean error after one step
+        """
         state = deepcopy(self.obs_torch)
         u = self.controller(state)
         rew = self.rew_exp_torch_batch_all(state[:, 0], target_state=self.target_state)
@@ -244,13 +257,17 @@ class PolicyOptimizer:
             )
             rew = rew + rewards
             state = next_state
-            # input()
         mean_error = torch.mean(state - self.target_state[0])
         t_elapsed = time.perf_counter() - t1
         logger.debug(f"Predictions completed... elapsed time: {t_elapsed:.2f}s")
         return rew, mean_error
 
     def reset(self):
+        """Reset everything to initial state (usually for another trial)
+
+        Returns:
+            Newly initiated obeserved states in torch.Tensor form
+        """
         # self.k_step = 0  # current simulation step number
         self.done = False
         self.time_reached = 1e4  # checkpoint for payload within acceptable limits
@@ -296,6 +313,16 @@ class PolicyOptimizer:
         return self.obs_torch
 
     def rew_exp_torch_batch_all(self, x, target_state):
+        """Calculate sum of all rewards over all horizon over all trajectories in
+        torch.Tensor
+
+        Args:
+            x : Current state
+            target_state : Goal state to reach
+
+        Returns:
+            Sum of all rewards in torch.Tensor form
+        """
         # returns sum of all rewards over all horizon over all trajs
         sigma2 = self.W_R[0, 0] ** 2
         state_error = x - self.target_state[0]
@@ -303,12 +330,28 @@ class PolicyOptimizer:
         return torch.sum(reward)
 
     def rew_exponential_PILCO(self, x, target_state):
+        """Calculate sum of all rewards over all horizon over all trajectories in
+        numpy (for plotting)
+
+        Args:
+            x : Current state
+            target_state : Goal state to reach
+
+        Returns:
+            Sum of all rewards in numpy.ndarray form
+        """
         sigma2 = self.W_R[0, 0] ** 2
         state_error = x - self.target_state[0]
         reward = np.exp(-np.divide((state_error) ** 2, sigma2))
         return reward
 
     def MC_oneSweep(self, controller, gp_model):
+        """Plot MC simulation plots for static initial state and random initial states
+
+        Args:
+            controller (type: Controller): The controller
+            gp_model (type: GPModel): The GP Model
+        """
         M_trajectories = (
             calc_realizations(
                 gp_model=gp_model,

@@ -33,6 +33,14 @@ class GPModel:
             set_device_cpu(self)
 
     def initialize_model(self, path_train_data=None, path_model="", force_train=False):
+        """Initialize GP model with given parameters.
+
+        Args:
+            path_train_data: Path to training data (in pkl format,
+                             get by running ros bag through avant_bagreader)
+            path_model: path to GP model (in pkl format)
+            force_train: Force retraining GP even if pkl file exists
+        """
         if not os.path.isfile(path_model) or force_train:
             # initialize models, train, save
             # load train data
@@ -90,6 +98,7 @@ class GPModel:
             logger.debug(f"Likelihood: {self.likelihood}")
 
     def train(self):
+        """Train GP model"""
         logger.info("Training GP models on data...")
         # ---- Optimize GP ----- #
         # Time the training process
@@ -138,12 +147,14 @@ class GPModel:
 
     def eval(self, X_test, y_test):
         """
-        quantify how good it is agaist test data
+        Quantify how good the trained model is agaist test data by calculating MSE
+
+        Args:
+            X_test: Input test in torch tensor
+            y_test: Output test in torch tensor
         """
         logger.debug("Starting batch querying GP with test data")
         t1_GPQueryingBatch = time.perf_counter()
-        # X_test = self.X_test
-        # y_test = self.y_test
         logger.debug(f"X test shape: {X_test.shape}")
         logger.debug(f"y test shape: {y_test.shape}")
         y_pred = self.predict(X_test)
@@ -178,10 +189,9 @@ class GPModel:
 
     def predict(self, X):
         """
-        predict the output from input X* using GP model
+        predict the output from input X using GP model
         """
         # //TODO: try passing tensors around to see if it improves speed
-        # logger.debug("getting prediction(s) from GP Model:")
         with gpytorch.settings.fast_pred_var():  # torch.no_grad(),
             observed_pred = self.likelihood(self.model(X))
         return observed_pred

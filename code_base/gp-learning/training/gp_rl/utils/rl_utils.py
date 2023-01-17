@@ -80,6 +80,23 @@ def calc_realizations(
     device=DEFAULT_DEVICE,
     dtype=DEFAULT_DTYPE,
 ):
+    """Calculate realizations for multiple trajectories using prediction uncertainty
+    from GP prediction
+
+    Args:
+        gp_model (type: GPModel): The GP Model
+        controller (type: Controller): The controller
+        n_trajectories : number of trajectories to calculate
+        state_dim : number of observable states
+        control_dim : number of controllable inputs
+        dt : sampling time
+        init_state : initial states
+        target_state : goal state to reach
+        tf : time to run the simulation
+
+    Returns:
+        realized trajectories, with GP uncertainty
+    """
     # initialize big tensor, keeping track of all variables
     if tf is None:
         horizon = 1
@@ -140,6 +157,21 @@ def calc_realization_mean(
     device=DEFAULT_DEVICE,
     dtype=DEFAULT_DTYPE,
 ):
+    """Calculate mean realizations from GP prediction
+
+    Args:
+        gp_model (type: GPModel): The GP Model
+        controller (type: Controller): The controller
+        state_dim : number of observable states
+        control_dim : number of controllable inputs
+        dt : sampling time
+        init_state : initial states
+        target_state : goal state to reach
+        tf : time to run the simulation
+
+    Returns:
+        mean realized trajectories
+    """
     # mean of GP predictions, no sampling
     if tf is None:
         horizon = 1
@@ -196,6 +228,24 @@ def calc_realizations_non_det_init(
     device=DEFAULT_DEVICE,
     dtype=DEFAULT_DTYPE,
 ):
+    """Calculate mean realized trajectories from multiple random starting points
+
+    Args:
+        n_trajs_sim : number of trajectories to simulate
+        gp_model (type: GPModel): The GP model
+        controller (type: Controller): The controller
+        state_dim : Number of observable states
+        control_dim : number of controllable inputs
+        x_lb : Lower bound of observable states
+        x_ub : Upper bound of observable states
+        dt : sampling time
+        init_state : initial states
+        target_state : goal states to reach
+        tf : time to run simulation for
+
+    Returns:
+        Realized trajectories from multiple random starting points
+    """
     if tf is None:
         horizon = 1
     else:

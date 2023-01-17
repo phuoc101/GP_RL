@@ -68,6 +68,7 @@ dir_path = Path(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.join(get_package_share_path("gazebo_control_interface")))
 
 
+
 class SteeringActionClient(Node):
     """
     This class handles the communation with the avant model. It will take in the
@@ -93,9 +94,9 @@ class SteeringActionClient(Node):
                 ("target_state", [0]),
                 ("force_train_gp", False),
                 ("logger_verbose", "DEBUG"),
-                ("path_to_training_data", "/home/teemu/data/boom_trial_6_10hz.pkl"),
-                ("path_to_model_data", "/home/teemu/results/gp/GPmodel.pkl"),
-                ("controller_data", "/home/teemu/results/controller/_all.pkl"),
+                ("path_to_training_data", "../data/boom_trial_6_10hz.pkl"),
+                ("path_to_model_data", str(dir_path) + "/../results/gp/"),
+                ("controller_data", str(dir_path) + "/../results/controller/"),
             ],
         )
 
@@ -254,7 +255,7 @@ class SteeringActionClient(Node):
     def init_controller(self):
         # boom
         controller_data = load_data(
-            self.get_parameter("controller_data").get_parameter_value().string_value
+            self.get_parameter("controller_data").get_parameter_value().string_value + "boom/"
             + "_all_boom.pkl"
         )
         controller = self.get_best_controller(controller_data)
@@ -262,7 +263,7 @@ class SteeringActionClient(Node):
 
         # bucket
         controller_data = load_data(
-            self.get_parameter("controller_data").get_parameter_value().string_value
+            self.get_parameter("controller_data").get_parameter_value().string_value + "bucket/"
             + "_all_bucket.pkl"
         )
         controller_bucket = self.get_best_controller(controller_data)
@@ -270,7 +271,7 @@ class SteeringActionClient(Node):
 
         # telescope
         controller_data = load_data(
-            self.get_parameter("controller_data").get_parameter_value().string_value
+            self.get_parameter("controller_data").get_parameter_value().string_value + "telescope/"
             + "_all_telescope.pkl"
         )
         controller_telescope = self.get_best_controller(controller_data)
@@ -297,8 +298,7 @@ class SteeringActionClient(Node):
         args:
             msg JoinState: position and velocities for each moving joint in the machine
         """
-
-        self.boom = msg.position[2]
+        self.boom_pose = msg.position[2]
         self.bucket_pose = msg.position[3]
         self.telescope_pose = msg.position[7]
 
@@ -321,7 +321,7 @@ class SteeringActionClient(Node):
                 controller=self.controller,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                dt=0.1,
+                dt=0.01,
                 init_state=init_state,
                 target_state=target_state,
             )
@@ -342,7 +342,7 @@ class SteeringActionClient(Node):
                 controller=self.controller_bucket,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                dt=0.1,
+                dt=0.01,
                 init_state=init_state,
                 target_state=target_state,
             )
@@ -363,7 +363,7 @@ class SteeringActionClient(Node):
                 controller=self.controller_telescope,
                 state_dim=self.state_dim,
                 control_dim=self.control_dim,
-                dt=0.1,
+                dt=0.01,
                 init_state=init_state,
                 target_state=target_state,
             )
